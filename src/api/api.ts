@@ -32,6 +32,39 @@ export const getDataSources = async () => {
   }
 };
 
+export const uploadCsvDataSource = async (args: {
+  name: string;
+  type: "csv";
+  file: File;
+  description?: string;
+}) => {
+  try {
+    const form = new FormData();
+
+    form.append("name", args.name);
+    form.append("type", args.type);
+    form.append("file", args.file);
+    
+    if (args.description) {
+      form.append("description", args.description);
+    }
+
+    const res = await api.post("/data-sources/", form, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return res.data;
+  } catch (error: any) {
+    console.error(
+      "Error uploading CSV:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};
+
 export const analyzeTool = async (body: {
   name: string;
   intent: string;
