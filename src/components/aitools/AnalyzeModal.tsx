@@ -133,7 +133,7 @@ export const AnalyzeModal = ({ isOpen, onClose, onAnalyze, datasets }: AnalyzeMo
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Intent (Optional)
+                    Intent
                   </label>
                   <textarea
                     placeholder="What do you want to predict or analyze?"
