@@ -145,7 +145,7 @@ export const AnalyzeModal = ({ isOpen, onClose, onAnalyze, datasets }: AnalyzeMo
                     Describing your goal helps the AI suggest better models
                   </p>
                 </div>
-
+{/*  
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     AI Model
@@ -171,7 +171,7 @@ export const AnalyzeModal = ({ isOpen, onClose, onAnalyze, datasets }: AnalyzeMo
                     ))}
                   </div>
                 </div>
-
+*/}
                 <div className="flex gap-3 pt-4">
                   <Button
                     type="button"

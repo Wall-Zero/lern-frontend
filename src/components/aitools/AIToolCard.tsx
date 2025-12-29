@@ -67,10 +67,12 @@ export const AIToolCard = ({ tool, onClick }: AIToolCardProps) => {
       )}
 
       <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* 
         <div>
           <p className="text-xs text-gray-500 mb-1">AI Model</p>
           <p className="text-sm font-semibold text-gray-900 capitalize">{tool.ai_model || 'N/A'}</p>
         </div>
+         */}
         <div>
           <p className="text-xs text-gray-500 mb-1">Versions</p>
           <p className="text-sm font-semibold text-gray-900">{tool.version_count}</p>
