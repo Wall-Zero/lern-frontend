@@ -40,8 +40,6 @@ export const AnalyzeModal = ({ isOpen, onClose, onAnalyze, datasets }: AnalyzeMo
     },
   });
 
-  const selectedDatasetId = watch('data_source_id');
-
   const handleDatasetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const datasetId = Number(e.target.value);
     setValue('data_source_id', datasetId);

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../common/Button';
 import type { AITool, Approach, FeatureColumn } from '../../types/aitools.types';

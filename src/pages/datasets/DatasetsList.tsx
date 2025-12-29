@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { datasetsApi } from '../../api/endpoints/datasets';
 import type { Dataset } from '../../types/dataset.types';
 import { DatasetCard } from '../../components/dataset/DatasetCard';
@@ -9,12 +8,10 @@ import { Button } from '../../components/common/Button';
 import { AppLayout } from '../../components/layout/AppLayout';
 
 export const DatasetsList = () => {
-  const { logout, user } = useAuth();
   const navigate = useNavigate();
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     loadDatasets();
@@ -36,14 +33,6 @@ export const DatasetsList = () => {
     await loadDatasets();
   };
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await logout();
-    } finally {
-      setIsLoggingOut(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">

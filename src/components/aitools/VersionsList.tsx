@@ -6,7 +6,7 @@ interface VersionsListProps {
   activeVersion: number | null;
 }
 
-export const VersionsList = ({ versions, activeVersion }: VersionsListProps) => {
+export const VersionsList = ({ versions }: VersionsListProps) => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
