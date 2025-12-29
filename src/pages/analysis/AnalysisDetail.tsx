@@ -282,9 +282,9 @@ export const AnalysisDetail = () => {
               <>
                 <TrainingMetrics
                   metrics={tool.active_version_data.metrics}
-                  trainingDuration={tool.active_version_data.training_duration}
-                  trainingSamples={tool.active_version_data.training_samples}
-                  testSamples={tool.active_version_data.test_samples}
+                  trainingDuration={tool.active_version_data.training_duration || 0}
+                  trainingSamples={tool.active_version_data.training_samples || 0}
+                  testSamples={tool.active_version_data.test_samples || 0}
                 />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

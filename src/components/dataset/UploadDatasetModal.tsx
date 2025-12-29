@@ -9,7 +9,7 @@ import { Input } from '../common/Input';
 const uploadSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  type: z.enum(['csv', 'xlsx', 'xls'], { required_error: 'Type is required' }),
+  type: z.enum(['csv', 'xlsx', 'xls']),
   file: z.instanceof(File, { message: 'File is required' }),
 });
 

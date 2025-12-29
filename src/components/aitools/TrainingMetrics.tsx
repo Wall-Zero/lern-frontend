@@ -29,11 +29,11 @@ export const TrainingMetrics = ({
       >
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-gray-600">R² Score</h4>
-          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getR2Color(metrics.r2_score)}`}>
-            {(metrics.r2_score * 100).toFixed(1)}%
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getR2Color(metrics.r2_score ?? 0)}`}>
+            {((metrics.r2_score ?? 0) * 100).toFixed(1)}%
           </span>
         </div>
-        <p className="text-3xl font-bold text-gray-900">{metrics.r2_score.toFixed(4)}</p>
+        <p className="text-3xl font-bold text-gray-900">{metrics.r2_score?.toFixed(4) ?? 'N/A'}</p>
       </motion.div>
 
       <motion.div
@@ -43,7 +43,7 @@ export const TrainingMetrics = ({
         className="bg-white rounded-xl border border-gray-200 p-6"
       >
         <h4 className="text-sm font-medium text-gray-600 mb-2">RMSE</h4>
-        <p className="text-3xl font-bold text-gray-900">{metrics.rmse.toFixed(4)}</p>
+        <p className="text-3xl font-bold text-gray-900">{metrics.rmse?.toFixed(4) ?? 'N/A'}</p>
         <p className="text-xs text-gray-500 mt-1">Root Mean Squared Error</p>
       </motion.div>
 
@@ -54,7 +54,7 @@ export const TrainingMetrics = ({
         className="bg-white rounded-xl border border-gray-200 p-6"
       >
         <h4 className="text-sm font-medium text-gray-600 mb-2">MAE</h4>
-        <p className="text-3xl font-bold text-gray-900">{metrics.mae.toFixed(4)}</p>
+        <p className="text-3xl font-bold text-gray-900">{metrics.mae?.toFixed(4) ?? 'N/A'}</p>
         <p className="text-xs text-gray-500 mt-1">Mean Absolute Error</p>
       </motion.div>
 

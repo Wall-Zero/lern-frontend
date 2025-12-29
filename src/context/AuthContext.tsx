@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../api/endpoints/auth';
 import type { User, AuthContextType, RegisterRequest } from '../types/auth.types';
+import type { ReactNode } from 'react';
 import { storage } from '../utils/storage';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
