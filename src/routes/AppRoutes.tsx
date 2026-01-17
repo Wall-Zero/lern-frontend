@@ -6,47 +6,103 @@ import { DatasetDetail } from '../pages/datasets/DatasetDetail';
 import { AnalysisList } from '../pages/analysis/AnalysisList';
 import { AnalysisDetail } from '../pages/analysis/AnalysisDetail';
 import { PrivateRoute } from './PrivateRoute';
+import { AppLayout } from '../components/layout/AppLayout';
+import { Dashboard } from '../pages/dashboard/Dashboard';
+import { PollingProvider } from '../context/PollingContext';
+
+// Placeholder components (crearemos después)
+const Predictions = () => <div>Predictions - Coming soon</div>;
+const Marketplace = () => <div>Marketplace - Coming soon</div>;
 
 export const AppRoutes = () => {
   return (
     <BrowserRouter>
+    <PollingProvider>
+
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        
+        <Route
+          path="/dashboard"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <Dashboard />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+        
         <Route
           path="/datasets"
           element={
             <PrivateRoute>
-              <DatasetsList />
+              <AppLayout>
+                <DatasetsList />
+              </AppLayout>
             </PrivateRoute>
           }
         />
+        
         <Route
           path="/datasets/:id"
           element={
             <PrivateRoute>
-              <DatasetDetail />
+              <AppLayout>
+                <DatasetDetail />
+              </AppLayout>
             </PrivateRoute>
           }
         />
+        
         <Route
           path="/analysis"
           element={
             <PrivateRoute>
-              <AnalysisList />
+              <AppLayout>
+                <AnalysisList />
+              </AppLayout>
             </PrivateRoute>
           }
         />
+        
         <Route
           path="/analysis/:id"
           element={
             <PrivateRoute>
-              <AnalysisDetail />
+              <AppLayout>
+                <AnalysisDetail />
+              </AppLayout>
             </PrivateRoute>
           }
         />
-        <Route path="/" element={<Navigate to="/datasets" />} />
+        
+        <Route
+          path="/predictions"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <Predictions />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+        
+        <Route
+          path="/marketplace"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <Marketplace />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+        
+        <Route path="/" element={<Navigate to="/dashboard" />} />
       </Routes>
+    </PollingProvider>
     </BrowserRouter>
   );
 };

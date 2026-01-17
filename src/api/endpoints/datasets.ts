@@ -11,7 +11,10 @@ export const datasetsApi = {
     const response = await apiClient.get(`/data-sources/${id}/`);
     return response.data;
   },
-
+  getColumns: async (id: number) => {
+    const response = await apiClient.get(`/data-sources/${id}/columns/`);
+    return response.data;
+  },
   create: async (data: CreateDatasetRequest): Promise<Dataset> => {
     const formData = new FormData();
     formData.append('name', data.name);

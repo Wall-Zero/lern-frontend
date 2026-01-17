@@ -31,6 +31,20 @@ export const aitoolsApi = {
     const response = await apiClient.post(`/ai-tools/${id}/train/`);
     return response.data;
   },
+  trainDirect: async (id: number): Promise<any> => {
+    const response = await apiClient.post(`/ai-tools/${id}/train_direct/`);
+    return response.data;
+  },
+  predict: async (id: number, file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/ai-tools/${id}/predict/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/ai-tools/${id}/`);
   },

@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { datasetsApi } from '../../api/endpoints/datasets';
 import type { Dataset } from '../../types/dataset.types';
 import { Button } from '../../components/common/Button';
+import { Badge } from '../../components/common/Badge';
+import { Card } from '../../components/common/Card';
+import { Spinner } from '../../components/common/Spinner';
 import { ColumnSearch } from '../../components/dataset/ColumnSearch';
+import { ChartIcon } from '../../components/common/Icons';
 
 export const DatasetDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,229 +47,199 @@ export const DatasetDetail = () => {
     });
   };
 
+  const statusConfig = {
+    connected: { variant: 'success' as const, label: 'Ready' },
+    pending: { variant: 'warning' as const, label: 'Processing' },
+    error: { variant: 'error' as const, label: 'Error' },
+  };
+
   const filteredColumns = dataset?.columns.filter((column) =>
     column.name.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Spinner size="lg" />
       </div>
     );
   }
 
   if (!dataset) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Dataset not found</h2>
-          <Button onClick={() => navigate('/datasets')}>Back to Datasets</Button>
-        </div>
+      <div className="text-center py-16">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Dataset not found</h2>
+        <Button onClick={() => navigate('/datasets')}>Back to Datasets</Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              onClick={() => navigate('/datasets')}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900">{dataset.name}</h1>
-              {dataset.description && (
-                <p className="text-gray-600 mt-1">{dataset.description}</p>
-              )}
-            </div>
-            <span
-              className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                dataset.status === 'connected'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {dataset.status}
-            </span>
-          </div>
+    <div className="space-y-8">
+      <div>
+        <button
+          onClick={() => navigate('/datasets')}
+          className="text-gray-600 hover:text-gray-900 transition-colors mb-4 flex items-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Datasets
+        </button>
 
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-6">
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Rows</p>
-              <p className="text-2xl font-bold text-gray-900">{dataset.row_count.toLocaleString()}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Columns</p>
-              <p className="text-2xl font-bold text-gray-900">{dataset.columns.length}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">File Size</p>
-              <p className="text-2xl font-bold text-gray-900">{formatFileSize(dataset.file_size)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-sm text-gray-600 mb-1">Type</p>
-              <p className="text-2xl font-bold text-gray-900 uppercase">{dataset.type}</p>
-            </div>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{dataset.name}</h1>
+            {dataset.description && (
+              <p className="text-gray-600 mt-2">{dataset.description}</p>
+            )}
           </div>
+          <Badge variant={statusConfig[dataset.status as keyof typeof statusConfig]?.variant || 'info'}>
+            {statusConfig[dataset.status as keyof typeof statusConfig]?.label || dataset.status}
+          </Badge>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Columns List */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Columns ({dataset.columns.length})
-                  </h2>
-                </div>
-                <ColumnSearch
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  totalColumns={dataset.columns.length}
-                  filteredCount={filteredColumns.length}
-                />
+      {dataset.status === 'connected' && (
+        <Card className="bg-gradient-to-r from-primary-50 to-primary-100 border-primary-200 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary-600 flex items-center justify-center flex-shrink-0">
+                <ChartIcon className="w-6 h-6 text-white" />
               </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Ready to build your model?
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Create an AI-powered analysis to train ML models on this dataset
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              className="px-6 py-3 flex-shrink-0"
+              onClick={() => navigate(`/analysis?dataset=${dataset.id}`)}
+            >
+              Start Analysis →
+            </Button>
+          </div>
+        </Card>
+      )}
 
-              {/* Scrollable Table Container */}
-              <div className="overflow-hidden" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                <table className="w-full">
-                  <thead className="bg-gray-50 sticky top-0 z-10">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="p-6">
+          <p className="text-sm text-gray-600 mb-1">Rows</p>
+          <p className="text-3xl font-bold text-gray-900">{dataset.row_count?.toLocaleString() || 'N/A'}</p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm text-gray-600 mb-1">Columns</p>
+          <p className="text-3xl font-bold text-gray-900">{dataset.columns?.length || 0}</p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm text-gray-600 mb-1">File Size</p>
+          <p className="text-3xl font-bold text-gray-900">{formatFileSize(dataset.file_size)}</p>
+        </Card>
+        <Card className="p-6">
+          <p className="text-sm text-gray-600 mb-1">Type</p>
+          <p className="text-3xl font-bold text-gray-900 uppercase">{dataset.type}</p>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Card className="overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Columns ({dataset.columns?.length || 0})
+              </h2>
+              <ColumnSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                totalColumns={dataset.columns?.length || 0}
+                filteredCount={filteredColumns.length}
+              />
+            </div>
+
+            <div className="overflow-y-auto" style={{ maxHeight: '600px' }}>
+              <table className="w-full">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                      Sample Values
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {filteredColumns.length === 0 ? (
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Properties
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Sample Values
-                      </th>
+                      <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                        No columns found matching "{searchQuery}"
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
-                    {filteredColumns.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                          No columns found matching "{searchQuery}"
+                  ) : (
+                    filteredColumns.map((column, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-medium text-gray-900">{column.name}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge variant="info">{column.type || column.dtype}</Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {column.sample_values?.slice(0, 3).map((value, i) => (
+                              <span
+                                key={i}
+                                className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded truncate max-w-[100px]"
+                                title={value}
+                              >
+                                {value}
+                              </span>
+                            ))}
+                          </div>
                         </td>
                       </tr>
-                    ) : (
-                      filteredColumns.map((column, idx) => (
-                        <motion.tr
-                          key={idx}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: idx * 0.01 }}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <p className="text-sm font-medium text-gray-900">{column.name}</p>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded">
-                              {column.type}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex gap-2">
-                              {column.unique && (
-                                <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded">
-                                  Unique
-                                </span>
-                              )}
-                              {column.nullable && (
-                                <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
-                                  Nullable
-                                </span>
-                              )}
-                              {!column.unique && !column.nullable && (
-                                <span className="text-xs text-gray-400">—</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-1 max-w-xs">
-                              {column.sample_values.slice(0, 3).map((value, i) => (
-                                <span
-                                  key={i}
-                                  className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded truncate max-w-[100px]"
-                                  title={value}
-                                >
-                                  {value}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                        </motion.tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Scroll Indicator */}
-              {filteredColumns.length > 8 && (
-                <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 text-center">
-                  <p className="text-xs text-gray-500">
-                    Scroll to see more columns
-                  </p>
-                </div>
-              )}
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-          </div>
+          </Card>
+        </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Actions */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Actions</h3>
-              <div className="space-y-3">
-                <Button variant="secondary" className="w-full">
-                  Download Dataset
-                </Button>
-                <Button variant="secondary" className="w-full text-red-600 hover:bg-red-50">
-                  Delete Dataset
-                </Button>
+        <div className="space-y-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Actions</h3>
+            <div className="space-y-3">
+              <Button variant="secondary" className="w-full">
+                Download Dataset
+              </Button>
+              <Button variant="danger" className="w-full">
+                Delete Dataset
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Information</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Created</p>
+                <p className="text-sm font-medium text-gray-900">{formatDate(dataset.created_at)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Last Updated</p>
+                <p className="text-sm font-medium text-gray-900">{formatDate(dataset.updated_at)}</p>
               </div>
             </div>
-
-            {/* Metadata */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Information</h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Created</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(dataset.created_at)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Last Updated</p>
-                  <p className="text-sm font-medium text-gray-900">{formatDate(dataset.updated_at)}</p>
-                </div>
-                {dataset.last_accessed && (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Last Accessed</p>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(dataset.last_accessed)}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>

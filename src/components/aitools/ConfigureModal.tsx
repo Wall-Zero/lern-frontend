@@ -109,7 +109,7 @@ export const ConfigureModal = ({ isOpen, onClose, onConfigure, tool, selectedApp
   };
 
   if (!dataset) return null;
-
+  console.log('Selected Features:', selectedFeatures);
   return (
     <AnimatePresence>
       {isOpen && (
