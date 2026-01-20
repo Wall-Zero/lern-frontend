@@ -149,7 +149,9 @@ export const Predictions = () => {
 
   // Validation
   console.log('Selected Model:', selectedModel);
-  const requiredColumns = (selectedModel?.config_snapshot?.feature_columns || []) as string[];
+  const requiredColumns = (selectedModel?.config_snapshot?.feature_columns || []).map((col: any) => 
+    typeof col === 'string' ? col : col.name
+  );  
   const providedColumns = parsedData.length > 0 ? Object.keys(parsedData[0]) : [];
   const missingColumns = requiredColumns.filter(col => !providedColumns.includes(col));
   const canPredict = selectedModel && parsedData.length > 0 && missingColumns.length === 0 && !isPredicting;

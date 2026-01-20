@@ -144,15 +144,19 @@ export const AnalysisDetail = () => {
   const handleConfigure = async () => {
      setIsSubmitting(true);
      try {
-       const configData = {
-           approach_index: tool?.analysis?.approaches?.findIndex((a:any) => a.algorithm === selectedAlgorithm.algorithm) || 0,
-           target_column: targetColumn,
-           feature_columns: selectedFeatures,
-           hyperparameters,
-           has_temporal_data: hasTemporalData,
-           temporal_column: hasTemporalData ? temporalColumn : null,
-           train_test_split: trainTestSplit,
-       };
+        const configData = {
+            approach_index: tool?.analysis?.approaches?.findIndex((a:any) => a.algorithm === selectedAlgorithm.algorithm) || 0,
+            selected_approach: selectedAlgorithm.approach,
+            model_type: selectedAlgorithm.model_type,
+            algorithm: selectedAlgorithm.algorithm,
+            target_column: targetColumn,
+            feature_columns: selectedFeatures,
+            hyperparameters,
+            has_temporal_data: hasTemporalData,
+            temporal_column: hasTemporalData ? temporalColumn : null,
+            train_test_split: trainTestSplit,
+            random_state: 42,
+        };
        await aitoolsApi.configure(parseInt(id!), configData);
        showSuccessToast('Starting training...');
        await aitoolsApi.trainDirect(parseInt(id!));
