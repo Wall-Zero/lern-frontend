@@ -141,31 +141,30 @@ export const AnalysisDetail = () => {
      setCurrentStep(prev => Math.min(prev + 1, 3));
   };
   const handlePreviousStep = () => setCurrentStep(prev => Math.max(prev - 1, 1));
-  const handleConfigure = async () => {
-     setIsSubmitting(true);
-     try {
+    const handleConfigure = async () => {
+    setIsSubmitting(true);
+    try {
         const configData = {
             approach_index: tool?.analysis?.approaches?.findIndex((a:any) => a.algorithm === selectedAlgorithm.algorithm) || 0,
             selected_approach: selectedAlgorithm.approach,
             model_type: selectedAlgorithm.model_type,
             algorithm: selectedAlgorithm.algorithm,
             target_column: targetColumn,
-            feature_columns: selectedFeatures,
+            feature_columns: selectedFeatures.map(name => ({ name })),
             hyperparameters,
             has_temporal_data: hasTemporalData,
             temporal_column: hasTemporalData ? temporalColumn : null,
             train_test_split: trainTestSplit,
             random_state: 42,
         };
-       await aitoolsApi.configure(parseInt(id!), configData);
-       showSuccessToast('Starting training...');
-       await aitoolsApi.trainDirect(parseInt(id!));
-       await loadTool();
-       setIsConfiguring(false);
-     } catch(e) { showErrorToast('Failed to train'); } 
-     finally { setIsSubmitting(false); }
-  };
-
+        await aitoolsApi.configure(parseInt(id!), configData);
+        showSuccessToast('Starting training...');
+        await aitoolsApi.trainDirect(parseInt(id!));
+        await loadTool();
+        setIsConfiguring(false);
+    } catch(e) { showErrorToast('Failed to train'); } 
+    finally { setIsSubmitting(false); }
+    };
   if (isLoading || !tool) return <div className="flex h-screen items-center justify-center"><Spinner size="lg" /></div>;
 
   const isInspectingActive = selectedVersion?.id === tool.active_version_data?.id;
