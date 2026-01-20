@@ -153,7 +153,7 @@ export const AnalysisDetail = () => {
             feature_columns: selectedFeatures.map(name => ({ name })),
             hyperparameters,
             has_temporal_data: hasTemporalData.toString(),
-            temporal_column: hasTemporalData ? temporalColumn : null,
+            temporal_column: hasTemporalData ? temporalColumn : undefined,
             train_test_split: trainTestSplit,
             random_state: 42,
         };
