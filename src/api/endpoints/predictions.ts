@@ -42,7 +42,7 @@ export const predictionsApi = {
   /*
 
   downloadResult: async ( _predictionId : number) => {
-    // TODO: Implementar cuando el backend esté listo
+    // TODO: Implementar cuando el backend esté listo 
     // return await apiClient.get(`/api/predictions/${predictionId}/download/`);
     return null;
   },
