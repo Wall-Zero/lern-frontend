@@ -147,7 +147,7 @@ export const Predictions = () => {
     setSelectedModel(null);
   };
 
-  // Validation
+  // Validation 
   console.log('Selected Model:', selectedModel);
   const requiredColumns = (selectedModel?.config_snapshot?.feature_columns || []).map((col: any) => 
     typeof col === 'string' ? col : col.name
