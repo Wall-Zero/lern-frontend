@@ -20,7 +20,6 @@ import {
 import type { DashboardStats } from '../../api/endpoints/dashboard';
 
 export const Dashboard = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);

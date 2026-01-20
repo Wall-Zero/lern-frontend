@@ -18,6 +18,10 @@ export interface RecentAnalysis {
 export const dashboardApi = {
   async getStats(): Promise<DashboardStats> {
     // Mock por ahora - reemplazar cuando backend tenga endpoint
+    const response = await api.get('/dashboards/stats/');
+    if (response.data) {
+      return response.data;
+    }
     return {
       total_datasets: 0,
       active_analysis: 0,
