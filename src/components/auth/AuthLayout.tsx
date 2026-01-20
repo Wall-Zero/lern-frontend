@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import tradingBg from '../../assets/background.png';
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -15,18 +16,33 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
       </div>
 
       {/* Visual Side */}
-      <div className="hidden lg:flex lg:w-3/5 bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 items-center justify-center p-12">
-        <div className="text-white text-center">
+      <div
+        className="hidden lg:flex lg:w-3/5 relative items-center justify-center p-12 text-white"
+        style={{
+          backgroundImage: `
+            linear-gradient(
+              rgba(123, 92, 214, 0.65),
+              rgba(154, 123, 232, 0.65)
+            ),
+            url(${tradingBg})
+          `,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="text-center max-w-md">
           <h1 className="text-5xl font-bold mb-4">LERN Platform</h1>
-          <p className="text-xl mb-8">AI-Powered Financial Analysis</p>
-          <div className="space-y-4">
-            <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6">
-              <p className="text-3xl font-bold">1,247+</p>
-              <p className="text-sm">Models Trained</p>
+          <p className="text-xl mb-10">AI-Powered Financial Analysis</p>
+
+          <div className="space-y-6">
+            <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-6 shadow-lg">
+              <p className="text-4xl font-bold">1,247+</p>
+              <p className="text-sm opacity-90">Models Trained</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-lg rounded-lg p-6">
-              <p className="text-3xl font-bold">98.5%</p>
-              <p className="text-sm">Accuracy Rate</p>
+
+            <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-6 shadow-lg">
+              <p className="text-4xl font-bold">98.5%</p>
+              <p className="text-sm opacity-90">Accuracy Rate</p>
             </div>
           </div>
         </div>

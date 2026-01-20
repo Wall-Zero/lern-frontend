@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { useState } from 'react';
+import logo_lern from '../../assets/logo.png';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -43,6 +44,15 @@ export const LoginForm = () => {
 
   return (
     <div className="space-y-8">
+      <div className="flex justify-center">
+        <div className="w-32 h-32 rounded-full overflow-hidden shadow-md bg-white flex items-center justify-center">
+          <img
+            src={logo_lern}
+            alt="LERN Logo"
+            className="w-full h-full object-cover"
+          />
+        </div>
+      </div>
       <div>
         <h2 className="text-4xl font-bold text-gray-900 mb-3">Welcome back</h2>
         <p className="text-lg text-gray-600">Sign in to your account</p>

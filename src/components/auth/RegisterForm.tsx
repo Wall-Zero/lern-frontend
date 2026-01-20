@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { useState } from 'react';
+import logo_lern from '../../assets/logo.png';
 
 const registerSchema = z.object({
   username: z.string().min(3, 'Username must be at least 3 characters'),
@@ -49,6 +50,15 @@ export const RegisterForm = () => {
   return (
     <div>
       <div className="mb-8">
+          <div className="flex justify-center mb-6">
+            <div className="w-32 h-32 rounded-full overflow-hidden shadow-md bg-white flex items-center justify-center">
+              <img
+                src={logo_lern}
+                alt="LERN Logo"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
         <h2 className="text-3xl font-bold text-gray-900">Create account</h2>
         <p className="text-gray-600 mt-2">Start your ML journey today</p>
       </div>
