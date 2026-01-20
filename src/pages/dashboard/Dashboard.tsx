@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { dashboardApi } from '../../api/endpoints/dashboard';
 import { StatusCard } from '../../components/dashboard/StatusCard';
 import { StatsCard } from '../../components/dashboard/StatsCard';

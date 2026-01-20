@@ -149,7 +149,7 @@ export const Predictions = () => {
 
   // Validation
   console.log('Selected Model:', selectedModel);
-  const requiredColumns = selectedModel?.config_snapshot?.feature_columns|| [];
+  const requiredColumns = (selectedModel?.config_snapshot?.feature_columns || []) as string[];
   const providedColumns = parsedData.length > 0 ? Object.keys(parsedData[0]) : [];
   const missingColumns = requiredColumns.filter(col => !providedColumns.includes(col));
   const canPredict = selectedModel && parsedData.length > 0 && missingColumns.length === 0 && !isPredicting;
@@ -296,10 +296,9 @@ export const Predictions = () => {
 
                     <Button
                       variant="flex"
-                      size="lg"
                       onClick={handlePredict}
                       disabled={!canPredict}
-                      className="min-w-[300px]"
+                      className="min-w-[300px] gap-2"
                     >
                       {isPredicting ? (
                         <span className="flex items-center gap-2">

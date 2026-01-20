@@ -136,7 +136,6 @@ export const AIToolCard = ({ tool, onClick }: AIToolCardProps) => {
                 </p>
                 <Button
                   variant="primary"
-                  fullWidth
                   onClick={(e) => {
                     e.stopPropagation();
                     onClick();
@@ -186,7 +185,6 @@ export const AIToolCard = ({ tool, onClick }: AIToolCardProps) => {
                 </div>
                 <Button
                   variant="secondary"
-                  fullWidth
                   onClick={(e) => {
                     e.stopPropagation();
                     onClick();

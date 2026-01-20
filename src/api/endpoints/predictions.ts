@@ -39,9 +39,12 @@ export const predictionsApi = {
   },
 
   // Descargar resultado específico (preparado para futuro)
-  downloadResult: async (predictionId: number) => {
+  /*
+
+  downloadResult: async ( _predictionId : number) => {
     // TODO: Implementar cuando el backend esté listo
     // return await apiClient.get(`/api/predictions/${predictionId}/download/`);
     return null;
   },
+  */
 };

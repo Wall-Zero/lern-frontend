@@ -6,7 +6,6 @@ import { aitoolsApi } from '../../api/endpoints/aitools';
 import { datasetsApi } from '../../api/endpoints/datasets';
 // Components
 import { WizardStepper } from '../../components/analysis/WizardStepper';
-import { WarningCollapsible } from '../../components/analysis/WarningCollapsible';
 import { AlgorithmCard } from '../../components/analysis/AlgorithmCard';
 import { FeatureSelector } from '../../components/analysis/FeatureSelector';
 import { TrainingConfig } from '../../components/analysis/TrainingConfig';
@@ -197,7 +196,7 @@ export const AnalysisDetail = () => {
             </div>
             <div className="flex gap-2">
                 {tool.status === 'trained' ? <Badge variant="success">Trained</Badge> : <Badge variant="yellow">{tool.status}</Badge>}
-                {tool.status === 'trained' && <Badge variant="outline">v{tool.active_version_number}</Badge>}
+                {tool.status === 'trained' && <Badge variant="success">v{tool.active_version_number}</Badge>}
             </div>
           </div>
         </div>
@@ -237,7 +236,7 @@ export const AnalysisDetail = () => {
                             <p className="text-sm text-gray-500">Setup your machine learning parameters</p>
                         </div>
                         {tool.status !== 'configuring' && (
-                            <Button variant="outline" size="sm" onClick={() => setIsConfiguring(false)}>Cancel</Button>
+                            <Button variant="secondary" onClick={() => setIsConfiguring(false)}>Cancel</Button>
                         )}
                     </div>
                     

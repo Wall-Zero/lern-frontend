@@ -190,7 +190,7 @@ export const DatasetDetail = () => {
                           <p className="text-sm font-medium text-gray-900">{column.name}</p>
                         </td>
                         <td className="px-6 py-4">
-                          <Badge variant="info">{column.type || column.dtype}</Badge>
+                          <Badge variant="info">{column.type}</Badge>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-1">

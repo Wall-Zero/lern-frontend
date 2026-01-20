@@ -85,7 +85,7 @@ export const AnalysisList = () => {
       await refreshTools();
     } catch (error) {
       console.error('Failed to start analysis:', error);
-      setOptimisticTools((prev) => prev.filter((t) => t.id !== optimisticTool.id));
+      setOptimisticTools((prev) => prev.filter((t) => t.id !== optimisticTools[0].id));
     }
   };
 

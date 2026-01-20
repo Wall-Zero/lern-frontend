@@ -134,7 +134,7 @@ export const ModelSelector = ({ models, selectedModel, onSelect, isLoading }: Mo
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="font-semibold text-gray-900">{model.name}</h4>
                       {model.active_version_number && (
-                        <Badge variant="default">v{model.active_version_number}</Badge>
+                        <Badge variant="success">v{model.active_version_number}</Badge>
                       )}
                       {selectedModel?.id === model.id && (
                         <svg className="w-4 h-4 text-primary-600" fill="currentColor" viewBox="0 0 20 20">
@@ -156,5 +156,4 @@ export const ModelSelector = ({ models, selectedModel, onSelect, isLoading }: Mo
   );
 };
 
-// Don't forget to import useState at the top
 import { useState } from 'react';
