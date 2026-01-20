@@ -8,10 +8,10 @@ import { AnalysisDetail } from '../pages/analysis/AnalysisDetail';
 import { PrivateRoute } from './PrivateRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 import { Dashboard } from '../pages/dashboard/Dashboard';
+import { Predictions } from '../pages/predictions/Predictions';
 import { PollingProvider } from '../context/PollingContext';
 
 // Placeholder components (crearemos después)
-const Predictions = () => <div>Predictions - Coming soon</div>;
 const Marketplace = () => <div>Marketplace - Coming soon</div>;
 
 export const AppRoutes = () => {

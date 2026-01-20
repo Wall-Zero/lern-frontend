@@ -141,7 +141,7 @@ export const AIToolCard = ({ tool, onClick }: AIToolCardProps) => {
                     e.stopPropagation();
                     onClick();
                   }}
-                  className="group"
+                  className="flex items-center group"
                 >
                   <span>Configure Model</span>
                   <svg className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +191,7 @@ export const AIToolCard = ({ tool, onClick }: AIToolCardProps) => {
                     e.stopPropagation();
                     onClick();
                   }}
-                  className="group"
+                  className="flex items-center group"
                 >
                   <span>View Details</span>
                   <svg className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

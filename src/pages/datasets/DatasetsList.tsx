@@ -44,14 +44,14 @@ export const DatasetsList = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-w-7xl mx-auto px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Datasets</h2>
           <p className="text-gray-600 mt-1">Manage your data sources for ML training</p>
         </div>
         {datasets.length > 0 && (
-          <Button onClick={() => setIsUploadModalOpen(true)} variant="primary">
+          <Button className='flex items-center' onClick={() => setIsUploadModalOpen(true)} variant="primary">
             <UploadIcon className="w-5 h-5 mr-2" />
             Upload Dataset
           </Button>

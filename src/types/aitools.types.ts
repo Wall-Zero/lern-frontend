@@ -10,6 +10,7 @@ export interface AITool {
   ai_model?: string;
   version_count: number;
   active_version_number: number | null;
+  config_snapshot?: AIToolConfig | null;
   active_version_data: Version | null;
   created_at: string;
   updated_at: string;
@@ -74,7 +75,7 @@ export interface RequiredConfig {
 
 export interface FeatureColumn {
   name: string;
-  type: string;
+  type?: string;
 }
 
 export interface AIToolConfig {

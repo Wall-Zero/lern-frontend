@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { aitoolsApi } from '../../api/endpoints/aitools';
 import { datasetsApi } from '../../api/endpoints/datasets';
@@ -13,16 +13,36 @@ import type { Dataset } from '../../types/dataset.types';
 
 export const AnalysisList = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { tools, refreshTools, startAggressivePolling } = usePolling();
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzeModalOpen, setIsAnalyzeModalOpen] = useState(false);
+  const [preSelectedDatasetId, setPreSelectedDatasetId] = useState<number | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [optimisticTools, setOptimisticTools] = useState<AITool[]>([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const ITEMS_PER_PAGE = 6;
 
   useEffect(() => {
     loadDatasets();
   }, []);
+
+  // Handle dataset pre-selection from URL query params
+  useEffect(() => {
+    const datasetId = searchParams.get('dataset');
+    if (datasetId && datasets.length > 0) {
+      const id = parseInt(datasetId, 10);
+      if (!isNaN(id)) {
+        setPreSelectedDatasetId(id);
+        setIsAnalyzeModalOpen(true);
+        setSearchParams({});
+      }
+    }
+  }, [searchParams, datasets]);
 
   const loadDatasets = async () => {
     try {
@@ -37,7 +57,6 @@ export const AnalysisList = () => {
 
   const handleAnalyze = async (data: any) => {
     try {
-      // Create optimistic tool for immediate UI feedback
       const optimisticTool: Partial<AITool> = {
         id: -Date.now(),
         name: data.name,
@@ -55,49 +74,54 @@ export const AnalysisList = () => {
         config: {},
       };
 
-      // Add to optimistic tools
       setOptimisticTools((prev) => [optimisticTool as AITool, ...prev]);
-      
-      // Close modal
       setIsAnalyzeModalOpen(false);
-      
-      // Show toast
+      setPreSelectedDatasetId(null);
       showSuccessToast('Analysis started! We\'ll notify you when it\'s ready.');
-
-      // Start aggressive polling
       startAggressivePolling();
 
-      // Make API call
       await aitoolsApi.analyze(data);
-      
-      // Clear optimistic tools BEFORE refresh to prevent duplicates
       setOptimisticTools([]);
-      
-      // Refresh to get real data
       await refreshTools();
     } catch (error) {
       console.error('Failed to start analysis:', error);
-      // Remove optimistic tool on error
       setOptimisticTools((prev) => prev.filter((t) => t.id !== optimisticTool.id));
     }
   };
 
-  // Combine real tools with optimistic tools, avoiding duplicates
+  const handleCloseModal = () => {
+    setIsAnalyzeModalOpen(false);
+    setPreSelectedDatasetId(null);
+  };
+
+  // Combine real tools with optimistic tools
   const allTools = (() => {
     const realTools = tools.filter(t => t.id > 0);
-    
-    // Only show optimistic tools if they don't have a real counterpart yet
     const validOptimisticTools = optimisticTools.filter(opt => 
       !realTools.some(real => real.name === opt.name)
     );
-    
     return [...validOptimisticTools, ...realTools];
   })();
 
+  // Filter tools by status
   const filteredTools = allTools.filter((tool) => {
     if (filter === 'all') return true;
     return tool.status === filter;
   });
+
+  // Update total count
+  useEffect(() => {
+    setTotalCount(filteredTools.length);
+    setCurrentPage(1); // Reset to first page when filter changes
+  }, [filter, filteredTools.length]);
+
+  // Paginate filtered tools
+  const paginatedTools = filteredTools.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   const filters = [
     {
@@ -160,7 +184,7 @@ export const AnalysisList = () => {
           <h2 className="text-3xl font-bold text-gray-900">AI Analysis Tools</h2>
           <p className="text-gray-600 mt-1">Create and manage ML model analysis</p>
         </div>
-        <Button onClick={() => setIsAnalyzeModalOpen(true)}>
+        <Button className="flex items-center" onClick={() => setIsAnalyzeModalOpen(true)}>
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
@@ -231,22 +255,75 @@ export const AnalysisList = () => {
           </Button>
         </motion.div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTools.map((tool) => (
-            <AIToolCard
-              key={tool.id}
-              tool={tool}
-              onClick={() => navigate(`/analysis/${tool.id}`)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedTools.map((tool) => (
+              <AIToolCard
+                key={tool.id}
+                tool={tool}
+                onClick={() => navigate(`/analysis/${tool.id}`)}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-8 px-4">
+              <div className="text-sm text-gray-600">
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to{' '}
+                {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} of {totalCount} results
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </Button>
+
+                <div className="flex gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        currentPage === page
+                          ? 'bg-primary-600 text-white shadow-md'
+                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <AnalyzeModal
         isOpen={isAnalyzeModalOpen}
-        onClose={() => setIsAnalyzeModalOpen(false)}
+        onClose={handleCloseModal}
         onAnalyze={handleAnalyze}
         datasets={datasets}
+        preSelectedDatasetId={preSelectedDatasetId}
       />
     </div>
   );

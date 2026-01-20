@@ -114,8 +114,9 @@ export const AnalysisDetail = () => {
 
   const handleActivateVersion = async (versionId: number) => {
     setIsActivatingVersion(true);
+    console.log('Activating version', versionId);
     try {
-      await aitoolsApi.client.post(`/ai-tools/${id}/set_active_version/`, { version_id: versionId });
+      await aitoolsApi.setActiveVersion(parseInt(id!), versionId);
       showSuccessToast('Version activated successfully');
       await loadTool(); 
     } catch (error) {
@@ -328,7 +329,7 @@ export const AnalysisDetail = () => {
                                         {isActivatingVersion ? 'Activating...' : 'Set as Active'}
                                     </Button>
                                 )}
-                                <Button variant="secondary" onClick={handleReconfigure}>
+                                <Button variant="secondary" onClick={handleReconfigure} className='flex items-center'>
                                     <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                     Retrain Model
                                 </Button>
@@ -375,7 +376,7 @@ export const AnalysisDetail = () => {
 
  
                 {/* Config & Actions */}
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-[60%_40%] gap-6">
                     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                         <h4 className="font-bold text-gray-900 mb-4">Configuration Summary</h4>
                         <div className="space-y-3">
@@ -396,8 +397,8 @@ export const AnalysisDetail = () => {
 
                     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
                         <h4 className="font-bold text-gray-900 mb-4">Quick Actions</h4>
-                        <div className="flex gap-3">
-                            <Button variant="primary" onClick={() => navigate('/predictions')} className="flex-1 justify-center bg-purple-600 hover:bg-purple-700 border-transparent">
+                        <div className="flex flex-col gap-2 h-[70%]">
+                            <Button variant="flex" onClick={() => navigate(`/predictions?model=${tool.id}`)} className="flex-1 items-center justify-center bg-purple-600 hover:bg-purple-700 border-transparent">
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                                 Make Predictions
                             </Button>

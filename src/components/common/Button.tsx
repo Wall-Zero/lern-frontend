@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'flex';
   isLoading?: boolean;
 }
 
@@ -20,6 +20,7 @@ export const Button = ({
     secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300',
     ghost: 'bg-transparent text-gray-700 hover:bg-gray-100',
     danger: 'bg-red-600 text-white hover:bg-red-700',
+    flex: 'flex items-center justify-center bg-primary-600 text-white hover:bg-primary-700',
   };
 
   return (

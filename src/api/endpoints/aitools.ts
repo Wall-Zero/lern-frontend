@@ -2,8 +2,8 @@ import apiClient from '../client';
 import type { AITool, AIToolListResponse, AnalyzeRequest, ConfigureRequest } from '../../types/aitools.types';
 
 export const aitoolsApi = {
-  list: async (): Promise<AIToolListResponse> => {
-    const response = await apiClient.get('/ai-tools/');
+  list: async (params?: { status?: string }): Promise<AIToolListResponse> => {
+    const response = await apiClient.get('/ai-tools/', { params });
     return response.data;
   },
 
@@ -43,6 +43,10 @@ export const aitoolsApi = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+  setActiveVersion: async (id: number, versionId: number): Promise<any> => {
+    const response = await apiClient.post(`/ai-tools/${id}/set_active_version/`, { version_id: versionId });
     return response.data;
   },
   delete: async (id: number): Promise<void> => {

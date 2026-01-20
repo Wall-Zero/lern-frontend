@@ -4,10 +4,8 @@ import {
   DatabaseIcon,
   ChartIcon,
   TargetIcon,
-  CpuIcon,
 } from '../common/Icons';
 
-// Agregar ícono de shopping
 const ShoppingIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -32,9 +30,9 @@ export const Sidebar = () => {
   const { user, logout } = useAuth();
 
   return (
-    <div className="w-64 bg-gray-900 min-h-screen flex flex-col text-white">
-      {/* Logo */}
-      <div className="p-6 border-b border-gray-800 flex items-center gap-3">
+    <div className="w-64 bg-gray-900 min-h-screen flex flex-col text-white sticky top-0 h-screen">
+      {/* Logo - Fixed */}
+      <div className="p-6 border-b border-gray-800 flex items-center gap-3 flex-shrink-0">
         <img 
           src="/logo_lern.jpg" 
           alt="LERN Logo" 
@@ -43,8 +41,8 @@ export const Sidebar = () => {
         <h1 className="text-2xl font-bold text-primary-400">LERN</h1>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      {/* Navigation - Scrollable */}
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
@@ -63,8 +61,8 @@ export const Sidebar = () => {
         ))}
       </nav>
 
-      {/* User section */}
-      <div className="p-4 border-t border-gray-800">
+      {/* User section - Fixed at bottom */}
+      <div className="p-4 border-t border-gray-800 flex-shrink-0 bg-gray-900">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-lg font-bold">
             {user?.username.charAt(0).toUpperCase()}
