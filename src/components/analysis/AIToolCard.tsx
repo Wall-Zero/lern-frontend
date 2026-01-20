@@ -208,7 +208,9 @@ export const AIToolCard = ({ tool, onClick }: AIToolCardProps) => {
               </svg>
               <span>{new Date(tool.created_at).toLocaleDateString()}</span>
             </div>
+            {/* 
             <span className="capitalize font-medium text-primary-600">{tool.ai_model}</span>
+            */}
           </div>
         </div>
       </Card>
