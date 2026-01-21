@@ -3,10 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Input } from '../common/Input';
-import { Button } from '../common/Button';
 import { useState } from 'react';
-import logo_lern from '../../assets/logo.png';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -43,51 +40,150 @@ export const LoginForm = () => {
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-center">
-        <div className="w-32 h-32 rounded-full overflow-hidden shadow-md bg-white flex items-center justify-center">
-          <img
-            src={logo_lern}
-            alt="LERN Logo"
-            className="w-full h-full object-cover"
-          />
+    <div className="auth-card" style={{
+      background: 'rgba(255, 255, 255, 0.02)',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRadius: '24px',
+      padding: '48px 40px',
+      backdropFilter: 'blur(20px)'
+    }}>
+      {/* Logo */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        marginBottom: '32px'
+      }}>
+        <div style={{
+          width: '56px',
+          height: '56px',
+          background: 'linear-gradient(135deg, #00ffc8, #00a080)',
+          borderRadius: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 0 30px rgba(0, 255, 200, 0.4)'
+        }}>
+          <span style={{
+            fontFamily: '"Outfit", sans-serif',
+            fontSize: '24px',
+            fontWeight: 700,
+            color: '#000'
+          }}>L</span>
         </div>
       </div>
-      <div>
-        <h2 className="text-4xl font-bold text-gray-900 mb-3">Welcome back</h2>
-        <p className="text-lg text-gray-600">Sign in to your account</p>
+
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <h2 className="auth-title" style={{
+          fontFamily: '"Outfit", sans-serif',
+          fontSize: '32px',
+          fontWeight: 600,
+          color: '#fff',
+          margin: '0 0 8px 0'
+        }}>Welcome back</h2>
+        <p style={{
+          fontFamily: '"Outfit", sans-serif',
+          fontSize: '15px',
+          color: 'rgba(255, 255, 255, 0.5)',
+          margin: 0
+        }}>Sign in to continue to LERN</p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {apiError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <div style={{
+            background: 'rgba(255, 107, 107, 0.1)',
+            border: '1px solid rgba(255, 107, 107, 0.3)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            fontFamily: '"Outfit", sans-serif',
+            fontSize: '14px',
+            color: '#ff6b6b'
+          }}>
             {apiError}
           </div>
         )}
 
-        <Input
-          label="Email"
-          type="email"
-          placeholder="you@example.com"
-          error={errors.email?.message}
-          {...register('email')}
-        />
+        {/* Email Field */}
+        <div>
+          <label style={{
+            display: 'block',
+            fontFamily: '"Space Mono", monospace',
+            fontSize: '11px',
+            color: 'rgba(255, 255, 255, 0.5)',
+            marginBottom: '8px',
+            letterSpacing: '0.5px'
+          }}>EMAIL</label>
+          <input
+            type="email"
+            placeholder="you@example.com"
+            className={`auth-input ${errors.email ? 'error' : ''}`}
+            {...register('email')}
+          />
+          {errors.email && (
+            <p style={{
+              fontFamily: '"Outfit", sans-serif',
+              fontSize: '13px',
+              color: '#ff6b6b',
+              margin: '8px 0 0 0'
+            }}>{errors.email.message}</p>
+          )}
+        </div>
 
-        <Input
-          label="Password"
-          type="password"
-          placeholder="••••••••"
-          error={errors.password?.message}
-          {...register('password')}
-        />
+        {/* Password Field */}
+        <div>
+          <label style={{
+            display: 'block',
+            fontFamily: '"Space Mono", monospace',
+            fontSize: '11px',
+            color: 'rgba(255, 255, 255, 0.5)',
+            marginBottom: '8px',
+            letterSpacing: '0.5px'
+          }}>PASSWORD</label>
+          <input
+            type="password"
+            placeholder="Enter your password"
+            className={`auth-input ${errors.password ? 'error' : ''}`}
+            {...register('password')}
+          />
+          {errors.password && (
+            <p style={{
+              fontFamily: '"Outfit", sans-serif',
+              fontSize: '13px',
+              color: '#ff6b6b',
+              margin: '8px 0 0 0'
+            }}>{errors.password.message}</p>
+          )}
+        </div>
 
-        <Button type="submit" className="w-full py-3 text-lg" isLoading={isLoading}>
-          Sign In
-        </Button>
+        {/* Submit Button */}
+        <button
+          type="submit"
+          className="auth-button"
+          disabled={isLoading}
+          style={{ marginTop: '8px' }}
+        >
+          {isLoading ? (
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite' }}>
+                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="31.4 31.4" />
+              </svg>
+              Signing in...
+            </span>
+          ) : 'Sign In'}
+        </button>
 
-        <p className="text-center text-base text-gray-600 pt-4">
+        {/* Sign up link */}
+        <p style={{
+          textAlign: 'center',
+          fontFamily: '"Outfit", sans-serif',
+          fontSize: '14px',
+          color: 'rgba(255, 255, 255, 0.5)',
+          margin: '8px 0 0 0'
+        }}>
           Don't have an account?{' '}
-          <Link to="/register" className="text-blue-600 hover:text-blue-700 font-semibold">
+          <Link to="/register" className="auth-link">
             Sign up
           </Link>
         </p>
