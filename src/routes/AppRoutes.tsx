@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Login } from '../pages/auth/Login';
 import { Register } from '../pages/auth/Register';
 import { DatasetsList } from '../pages/datasets/DatasetsList';
@@ -10,6 +10,7 @@ import { AppLayout } from '../components/layout/AppLayout';
 import { Dashboard } from '../pages/dashboard/Dashboard';
 import { Predictions } from '../pages/predictions/Predictions';
 import { PollingProvider } from '../context/PollingContext';
+import Landing from '../pages/landing/Landing';
 
 // Placeholder components (crearemos después)
 const Marketplace = () => <div>Marketplace - Coming soon</div>;
@@ -100,7 +101,7 @@ export const AppRoutes = () => {
           }
         />
         
-        <Route path="/" element={<Navigate to="/dashboard" />} />
+        <Route path="/" element={<Landing />} />
       </Routes>
     </PollingProvider>
     </BrowserRouter>
