@@ -176,6 +176,118 @@ const DataFutureLanding = () => {
           transform: scale(1.1);
           filter: drop-shadow(0 0 20px rgba(0, 255, 200, 0.8));
         }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 1024px) {
+          .hero-grid {
+            grid-template-columns: 1fr !important;
+            gap: 40px !important;
+          }
+          .hero-visual {
+            height: 400px !important;
+            order: -1;
+          }
+          .features-grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .nav-container {
+            padding: 16px 20px !important;
+          }
+          .nav-links {
+            display: none !important;
+          }
+          .nav-button {
+            padding: 8px 16px !important;
+            font-size: 12px !important;
+          }
+          .hero-section {
+            padding: 0 20px !important;
+            padding-top: 100px !important;
+          }
+          .hero-title {
+            font-size: 36px !important;
+          }
+          .hero-subtitle {
+            font-size: 12px !important;
+            letter-spacing: 1.5px !important;
+          }
+          .hero-description {
+            font-size: 16px !important;
+          }
+          .hero-buttons {
+            flex-direction: column !important;
+          }
+          .hero-buttons button {
+            width: 100% !important;
+          }
+          .hero-visual {
+            height: 300px !important;
+          }
+          .main-orb {
+            width: 180px !important;
+            height: 180px !important;
+          }
+          .floating-card {
+            display: none !important;
+          }
+          .floating-card-main {
+            padding: 12px !important;
+            font-size: 10px !important;
+          }
+          .features-section {
+            padding: 60px 20px !important;
+          }
+          .features-grid {
+            grid-template-columns: 1fr !important;
+            gap: 20px !important;
+          }
+          .features-title {
+            font-size: 28px !important;
+          }
+          .features-description {
+            font-size: 14px !important;
+          }
+          .feature-card {
+            padding: 24px !important;
+          }
+          .cta-section {
+            padding: 60px 20px !important;
+          }
+          .cta-title {
+            font-size: 28px !important;
+          }
+          .cta-description {
+            font-size: 14px !important;
+          }
+          .cta-button {
+            padding: 16px 32px !important;
+            font-size: 16px !important;
+          }
+          .footer-container {
+            flex-direction: column !important;
+            gap: 24px !important;
+            text-align: center !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .hero-title {
+            font-size: 28px !important;
+          }
+          .hero-visual {
+            height: 250px !important;
+          }
+          .main-orb {
+            width: 140px !important;
+            height: 140px !important;
+          }
+          .cta-title {
+            font-size: 24px !important;
+          }
+        }
       `}</style>
 
       {/* Terminal Phase */}
@@ -301,7 +413,7 @@ const DataFutureLanding = () => {
           ))}
 
           {/* Navigation */}
-          <nav style={{
+          <nav className="nav-container" style={{
             position: 'fixed',
             top: 0,
             left: 0,
@@ -338,7 +450,7 @@ const DataFutureLanding = () => {
               LERN
             </div>
 
-            <div style={{
+            <div className="nav-links" style={{
               display: 'flex',
               gap: '40px',
               fontFamily: '"Space Mono", monospace',
@@ -361,6 +473,7 @@ const DataFutureLanding = () => {
             </div>
 
             <button
+              className="nav-button"
               onClick={handleLaunchApp}
               style={{
                 background: 'transparent',
@@ -390,14 +503,14 @@ const DataFutureLanding = () => {
           </nav>
 
           {/* Hero Section */}
-          <section style={{
+          <section className="hero-section" style={{
             minHeight: '100vh',
             display: 'flex',
             alignItems: 'center',
             padding: '0 48px',
             position: 'relative'
           }}>
-            <div style={{
+            <div className="hero-grid" style={{
               maxWidth: '1400px',
               margin: '0 auto',
               width: '100%',
@@ -408,7 +521,7 @@ const DataFutureLanding = () => {
             }}>
               {/* Left content */}
               <div>
-                <div style={{
+                <div className="hero-subtitle" style={{
                   fontFamily: '"Space Mono", monospace',
                   fontSize: '12px',
                   color: '#00ffc8',
@@ -430,7 +543,7 @@ const DataFutureLanding = () => {
                   THE FUTURE OF DATA ANALYTICS
                 </div>
 
-                <h1 style={{
+                <h1 className="hero-title" style={{
                   fontFamily: '"Outfit", sans-serif',
                   fontSize: '72px',
                   fontWeight: 200,
@@ -453,7 +566,7 @@ const DataFutureLanding = () => {
                   your data
                 </h1>
 
-                <p style={{
+                <p className="hero-description" style={{
                   fontFamily: '"Outfit", sans-serif',
                   fontSize: '20px',
                   fontWeight: 300,
@@ -469,7 +582,7 @@ const DataFutureLanding = () => {
                   Let intelligence amplify your analytics.
                 </p>
 
-                <div style={{
+                <div className="hero-buttons" style={{
                   display: 'flex',
                   gap: '16px',
                   animation: 'slideUp 0.8s ease-out',
@@ -533,7 +646,7 @@ const DataFutureLanding = () => {
               </div>
 
               {/* Right visual */}
-              <div style={{
+              <div className="hero-visual" style={{
                 position: 'relative',
                 height: '600px',
                 animation: 'slideUp 1s ease-out',
@@ -541,7 +654,7 @@ const DataFutureLanding = () => {
                 animationFillMode: 'both'
               }}>
                 {/* Main orb */}
-                <div style={{
+                <div className="main-orb" style={{
                   position: 'absolute',
                   top: '50%',
                   left: '50%',
@@ -583,7 +696,7 @@ const DataFutureLanding = () => {
                 </div>
 
                 {/* Floating cards */}
-                <div style={{
+                <div className="floating-card" style={{
                   position: 'absolute',
                   top: '10%',
                   right: '5%',
@@ -613,7 +726,7 @@ const DataFutureLanding = () => {
                   }}>Sample skew in Q3 data</div>
                 </div>
 
-                <div style={{
+                <div className="floating-card" style={{
                   position: 'absolute',
                   bottom: '15%',
                   left: '0%',
@@ -652,7 +765,7 @@ const DataFutureLanding = () => {
                   </div>
                 </div>
 
-                <div style={{
+                <div className="floating-card" style={{
                   position: 'absolute',
                   top: '60%',
                   right: '-5%',
@@ -706,7 +819,7 @@ const DataFutureLanding = () => {
           </section>
 
           {/* Features Section */}
-          <section style={{
+          <section className="features-section" style={{
             padding: '120px 48px',
             position: 'relative'
           }}>
@@ -718,7 +831,7 @@ const DataFutureLanding = () => {
                 textAlign: 'center',
                 marginBottom: '80px'
               }}>
-                <h2 style={{
+                <h2 className="features-title" style={{
                   fontFamily: '"Outfit", sans-serif',
                   fontSize: '48px',
                   fontWeight: 300,
@@ -727,7 +840,7 @@ const DataFutureLanding = () => {
                 }}>
                   Intelligence that <span style={{ fontWeight: 600 }}>evolves</span> with your data
                 </h2>
-                <p style={{
+                <p className="features-description" style={{
                   fontFamily: '"Outfit", sans-serif',
                   fontSize: '18px',
                   color: 'rgba(255, 255, 255, 0.5)',
@@ -739,7 +852,7 @@ const DataFutureLanding = () => {
                 </p>
               </div>
 
-              <div style={{
+              <div className="features-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 1fr)',
                 gap: '32px'
@@ -823,7 +936,7 @@ const DataFutureLanding = () => {
           </section>
 
           {/* CTA Section */}
-          <section style={{
+          <section className="cta-section" style={{
             padding: '120px 48px',
             position: 'relative'
           }}>
@@ -844,7 +957,7 @@ const DataFutureLanding = () => {
                 pointerEvents: 'none'
               }} />
 
-              <h2 style={{
+              <h2 className="cta-title" style={{
                 fontFamily: '"Outfit", sans-serif',
                 fontSize: '56px',
                 fontWeight: 200,
@@ -863,7 +976,7 @@ const DataFutureLanding = () => {
                 behind?
               </h2>
 
-              <p style={{
+              <p className="cta-description" style={{
                 fontFamily: '"Outfit", sans-serif',
                 fontSize: '18px',
                 color: 'rgba(255, 255, 255, 0.5)',
@@ -874,6 +987,7 @@ const DataFutureLanding = () => {
               </p>
 
               <button
+                className="cta-button"
                 onClick={handleStartTrial}
                 style={{
                   background: 'linear-gradient(135deg, #00ffc8, #00a080)',
@@ -908,7 +1022,7 @@ const DataFutureLanding = () => {
             padding: '48px',
             borderTop: '1px solid rgba(255, 255, 255, 0.05)'
           }}>
-            <div style={{
+            <div className="footer-container" style={{
               maxWidth: '1400px',
               margin: '0 auto',
               display: 'flex',
