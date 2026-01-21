@@ -1,20 +1,39 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import {
-  DatabaseIcon,
-  ChartIcon,
-  TargetIcon,
-} from '../common/Icons';
 
-const ShoppingIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+const HomeIcon = () => (
+  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
   </svg>
 );
 
-const HomeIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+const DatabaseIcon = () => (
+  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+  </svg>
+);
+
+const ChartIcon = () => (
+  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  </svg>
+);
+
+const TargetIcon = () => (
+  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+  </svg>
+);
+
+const ShoppingIcon = () => (
+  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+  </svg>
+);
+
+const LogoutIcon = () => (
+  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
   </svg>
 );
 
@@ -30,53 +49,174 @@ export const Sidebar = () => {
   const { user, logout } = useAuth();
 
   return (
-    <div className="w-64 bg-gray-900 min-h-screen flex flex-col text-white sticky top-0 h-screen">
-      {/* Logo - Fixed */}
-      <div className="p-6 border-b border-gray-800 flex items-center gap-3 flex-shrink-0">
-        <img 
-          src="/logo_lern.jpg" 
-          alt="LERN Logo" 
-          className="w-10 h-10 rounded-full object-cover"
-        />
-        <h1 className="text-2xl font-bold text-primary-400">LERN</h1>
+    <div style={{
+      width: '260px',
+      minHeight: '100vh',
+      background: '#fff',
+      borderRight: '1px solid #e5e7eb',
+      display: 'flex',
+      flexDirection: 'column',
+      position: 'sticky',
+      top: 0,
+      height: '100vh',
+      fontFamily: '"Outfit", sans-serif'
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+        .nav-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          border-radius: 10px;
+          color: #6b7280;
+          text-decoration: none;
+          font-weight: 500;
+          font-size: 15px;
+          transition: all 0.15s ease;
+        }
+        .nav-link:hover {
+          background: #f3f4f6;
+          color: #111827;
+        }
+        .nav-link.active {
+          background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+          color: #fff;
+        }
+        .nav-link.active:hover {
+          background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+        }
+        .logout-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          padding: 10px 16px;
+          border: 1px solid #e5e7eb;
+          border-radius: 10px;
+          background: #fff;
+          color: #6b7280;
+          font-family: 'Outfit', sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .logout-btn:hover {
+          background: #f9fafb;
+          border-color: #d1d5db;
+          color: #111827;
+        }
+      `}</style>
+
+      {/* Logo */}
+      <div style={{
+        padding: '24px 20px',
+        borderBottom: '1px solid #f3f4f6'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <span style={{
+              color: '#fff',
+              fontSize: '18px',
+              fontWeight: 700
+            }}>L</span>
+          </div>
+          <span style={{
+            fontSize: '22px',
+            fontWeight: 700,
+            color: '#111827'
+          }}>LERN</span>
+        </div>
       </div>
 
-      {/* Navigation - Scrollable */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      {/* Navigation */}
+      <nav style={{
+        flex: 1,
+        padding: '16px 12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+        overflowY: 'auto'
+      }}>
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? 'bg-primary-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800'
-              }`
-            }
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
           >
-            <item.icon className="w-5 h-5" />
-            <span className="font-medium">{item.label}</span>
+            <item.icon />
+            {item.label}
           </NavLink>
         ))}
       </nav>
 
-      {/* User section - Fixed at bottom */}
-      <div className="p-4 border-t border-gray-800 flex-shrink-0 bg-gray-900">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-lg font-bold">
-            {user?.username.charAt(0).toUpperCase()}
+      {/* User section */}
+      <div style={{
+        padding: '16px',
+        borderTop: '1px solid #f3f4f6'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '12px',
+          padding: '8px',
+          background: '#f9fafb',
+          borderRadius: '10px'
+        }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontSize: '15px',
+            fontWeight: 600,
+            flexShrink: 0
+          }}>
+            {user?.username?.charAt(0).toUpperCase() || 'U'}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user?.username}</p>
-            <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#111827',
+              margin: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>{user?.username}</p>
+            <p style={{
+              fontSize: '12px',
+              color: '#6b7280',
+              margin: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>{user?.email}</p>
           </div>
         </div>
-        <button
-          onClick={logout}
-          className="w-full px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-        >
-          Logout
+        <button onClick={logout} className="logout-btn">
+          <LogoutIcon />
+          Log out
         </button>
       </div>
     </div>

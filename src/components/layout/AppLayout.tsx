@@ -10,7 +10,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="flex min-h-screen bg-gray-50">
+      <div className="flex min-h-screen" style={{ background: '#f9fafb' }}>
         <Sidebar />
         <main className="flex-1 overflow-auto">
           {children}
