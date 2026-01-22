@@ -1,6 +1,12 @@
 import apiClient from '../client';
 import type { Dataset, DatasetListResponse, CreateDatasetRequest } from '../../types/dataset.types';
 
+export interface DatasetPreview {
+  columns: string[];
+  data: Record<string, any>[];
+  total_rows: number;
+}
+
 export const datasetsApi = {
   list: async (): Promise<DatasetListResponse> => {
     const response = await apiClient.get('/data-sources/');
@@ -11,10 +17,19 @@ export const datasetsApi = {
     const response = await apiClient.get(`/data-sources/${id}/`);
     return response.data;
   },
+
   getColumns: async (id: number) => {
     const response = await apiClient.get(`/data-sources/${id}/columns/`);
     return response.data;
   },
+
+  preview: async (id: number, rows: number = 100): Promise<DatasetPreview> => {
+    const response = await apiClient.get(`/data-sources/${id}/preview/`, {
+      params: { rows }
+    });
+    return response.data;
+  },
+
   create: async (data: CreateDatasetRequest): Promise<Dataset> => {
     const formData = new FormData();
     formData.append('name', data.name);

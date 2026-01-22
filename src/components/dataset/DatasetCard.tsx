@@ -1,6 +1,3 @@
-import { Card } from '../common/Card';
-import { Badge } from '../common/Badge';
-import { Button } from '../common/Button';
 import type { Dataset } from '../../types/dataset.types';
 
 interface DatasetCardProps {
@@ -8,12 +5,6 @@ interface DatasetCardProps {
   onClick: () => void;
   onAnalyze?: () => void;
 }
-
-const statusConfig = {
-  connected: { variant: 'success' as const, label: 'Ready' },
-  pending: { variant: 'warning' as const, label: 'Processing' },
-  error: { variant: 'error' as const, label: 'Error' },
-};
 
 export const DatasetCard = ({ dataset, onClick, onAnalyze }: DatasetCardProps) => {
   const formatFileSize = (bytes: number) => {
@@ -30,81 +21,173 @@ export const DatasetCard = ({ dataset, onClick, onAnalyze }: DatasetCardProps) =
     });
   };
 
+  const statusColors = {
+    connected: { bg: '#dcfce7', text: '#16a34a' },
+    pending: { bg: '#fef3c7', text: '#d97706' },
+    error: { bg: '#fee2e2', text: '#dc2626' },
+  };
+
+  const status = statusColors[dataset.status as keyof typeof statusColors] || { bg: '#f3f4f6', text: '#6b7280' };
+
   return (
-    <Card
-      className="group transition-all duration-200 cursor-pointer border-2 border-transparent hover:border-primary-300 hover:shadow-lg"
+    <div
+      onClick={onClick}
+      style={{
+        background: '#fff',
+        borderRadius: '16px',
+        border: '1px solid #e5e7eb',
+        padding: '24px',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease',
+        fontFamily: '"Outfit", sans-serif'
+      }}
+      className="dataset-card"
     >
-      <div onClick={onClick}>
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 truncate group-hover:text-primary-600 transition-colors">
-              {dataset.name}
-            </h3>
-            {dataset.description && (
-              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                {dataset.description}
-              </p>
-            )}
-          </div>
-          <Badge variant={statusConfig[dataset.status as keyof typeof statusConfig]?.variant || 'info'}>
-            {statusConfig[dataset.status as keyof typeof statusConfig]?.label || dataset.status}
-          </Badge>
-        </div>
+      <style>{`
+        .dataset-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+          border-color: #0d9488;
+        }
+        .dataset-card:hover .view-link {
+          opacity: 1;
+        }
+        .analyze-btn {
+          width: 100%;
+          padding: 10px 16px;
+          background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+          border: none;
+          border-radius: 8px;
+          color: #fff;
+          font-family: 'Outfit', sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .analyze-btn:hover {
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+        }
+      `}</style>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-xs text-gray-600 mb-1">Rows</p>
-            <p className="text-sm font-semibold text-gray-900">
-              {dataset.row_count?.toLocaleString() || 'N/A'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-600 mb-1">Columns</p>
-            <p className="text-sm font-semibold text-gray-900">
-              {dataset.columns?.length || 0}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-600 mb-1">Size</p>
-            <p className="text-sm font-semibold text-gray-900">
-              {formatFileSize(dataset.file_size)}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-600 mb-1">Type</p>
-            <p className="text-sm font-semibold text-gray-900 uppercase">
-              {dataset.type}
-            </p>
-          </div>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        marginBottom: '16px'
+      }}>
+        <div style={{ flex: 1, minWidth: 0, marginRight: '12px' }}>
+          <h3 style={{
+            fontSize: '17px',
+            fontWeight: 600,
+            color: '#111827',
+            margin: '0 0 4px 0',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}>{dataset.name}</h3>
+          {dataset.description && (
+            <p style={{
+              fontSize: '14px',
+              color: '#6b7280',
+              margin: 0,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden'
+            }}>{dataset.description}</p>
+          )}
         </div>
-
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-          <p className="text-xs text-gray-500">
-            Created {formatDate(dataset.created_at)}
-          </p>
-          <button className="flex items-center gap-1 text-primary-600 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-            View Details
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
+        <span style={{
+          padding: '4px 10px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: 500,
+          background: status.bg,
+          color: status.text,
+          textTransform: 'capitalize',
+          flexShrink: 0
+        }}>
+          {dataset.status === 'connected' ? 'Ready' : dataset.status}
+        </span>
       </div>
 
+      {/* Stats */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '12px',
+        marginBottom: '16px'
+      }}>
+        {[
+          { label: 'Rows', value: dataset.row_count?.toLocaleString() || 'N/A' },
+          { label: 'Columns', value: dataset.columns?.length || 0 },
+          { label: 'Size', value: formatFileSize(dataset.file_size) },
+          { label: 'Type', value: dataset.type?.toUpperCase() || 'N/A' },
+        ].map((stat) => (
+          <div key={stat.label}>
+            <p style={{
+              fontSize: '12px',
+              color: '#9ca3af',
+              margin: '0 0 2px 0'
+            }}>{stat.label}</p>
+            <p style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#111827',
+              margin: 0
+            }}>{stat.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingTop: '16px',
+        borderTop: '1px solid #f3f4f6'
+      }}>
+        <p style={{
+          fontSize: '12px',
+          color: '#9ca3af',
+          margin: 0
+        }}>
+          {formatDate(dataset.created_at)}
+        </p>
+        <span className="view-link" style={{
+          fontSize: '13px',
+          fontWeight: 500,
+          color: '#0d9488',
+          opacity: 0,
+          transition: 'opacity 0.2s ease',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          View
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      </div>
+
+      {/* Analyze Button */}
       {dataset.status === 'connected' && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <Button
-            variant="primary"
-            className="w-full"
+        <div style={{ marginTop: '16px' }}>
+          <button
+            className="analyze-btn"
             onClick={(e) => {
               e.stopPropagation();
               onAnalyze?.();
             }}
           >
             Analyze Dataset →
-          </Button>
+          </button>
         </div>
       )}
-    </Card>
+    </div>
   );
 };
