@@ -116,11 +116,16 @@ export const Sidebar = () => {
         padding: '24px 20px',
         borderBottom: '1px solid #f3f4f6'
       }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
+        <NavLink
+          to="/dashboard"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            textDecoration: 'none',
+            cursor: 'pointer'
+          }}
+        >
           <div style={{
             width: '36px',
             height: '36px',
@@ -141,7 +146,7 @@ export const Sidebar = () => {
             fontWeight: 700,
             color: '#111827'
           }}>LERN</span>
-        </div>
+        </NavLink>
       </div>
 
       {/* Navigation */}

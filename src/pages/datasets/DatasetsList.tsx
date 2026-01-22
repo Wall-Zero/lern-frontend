@@ -88,14 +88,23 @@ export const DatasetsList = () => {
     }
   };
 
+  // Store preview error for display
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
   const handlePreview = async (dataset: Dataset) => {
     setPreviewDataset(dataset);
     setIsLoadingPreview(true);
+    setPreviewError(null);
     try {
       const data = await datasetsApi.preview(dataset.id);
       setPreviewData(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load preview:', error);
+      const errorMessage = error.response?.data?.detail
+        || error.response?.data?.message
+        || error.message
+        || 'Unknown error';
+      setPreviewError(errorMessage);
       setPreviewData(null);
     } finally {
       setIsLoadingPreview(false);
@@ -105,6 +114,7 @@ export const DatasetsList = () => {
   const closePreview = () => {
     setPreviewDataset(null);
     setPreviewData(null);
+    setPreviewError(null);
   };
 
   const toggleInterfaceMode = () => {
@@ -1732,9 +1742,14 @@ export const DatasetsList = () => {
                       )}
                     </div>
                   ) : (
-                    <p style={{ color: '#6b7280', textAlign: 'center', padding: '20px' }}>
-                      Unable to load preview
-                    </p>
+                    <div style={{ color: '#dc2626', textAlign: 'center', padding: '20px', background: '#fef2f2', borderRadius: '8px' }}>
+                      <p style={{ margin: '0 0 8px 0', fontWeight: 500 }}>Unable to load preview</p>
+                      {previewError && (
+                        <p style={{ margin: 0, fontSize: '13px', color: '#991b1b', fontFamily: 'JetBrains Mono, monospace' }}>
+                          {previewError}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
