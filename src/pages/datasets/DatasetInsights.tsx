@@ -51,6 +51,8 @@ const ProviderCard = ({ analysis }: { analysis: ProviderAnalysisResult }) => {
 
   const biases = analysis.bias_analysis?.detected_biases || [];
   const readinessStatus = analysis.ml_readiness?.overall_readiness || 'needs_work';
+  const dataQuality = analysis.data_quality;
+  const overallScore = dataQuality?.overall_score ?? 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -60,68 +62,70 @@ const ProviderCard = ({ analysis }: { analysis: ProviderAnalysisResult }) => {
       </div>
 
       {/* Data Quality */}
-      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '24px' }}>
-        <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#0d9488">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Data Quality
-        </h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px' }}>
-          <div style={{
-            width: '100px',
-            height: '100px',
-            borderRadius: '50%',
-            background: `conic-gradient(#0d9488 ${analysis.data_quality.overall_score * 360}deg, #e5e7eb 0deg)`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
+      {dataQuality && (
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '24px' }}>
+          <h3 style={{ margin: '0 0 20px 0', fontSize: '16px', fontWeight: 600, color: '#111827', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#0d9488">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Data Quality
+          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px' }}>
             <div style={{
-              width: '80px',
-              height: '80px',
+              width: '100px',
+              height: '100px',
               borderRadius: '50%',
-              background: '#fff',
+              background: `conic-gradient(#0d9488 ${overallScore * 360}deg, #e5e7eb 0deg)`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '24px',
-              fontWeight: 700,
-              color: '#111827',
+              flexShrink: 0,
             }}>
-              {Math.round(analysis.data_quality.overall_score * 100)}
+              <div style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+                fontWeight: 700,
+                color: '#111827',
+              }}>
+                {Math.round(overallScore * 100)}
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <ScoreBar score={dataQuality.completeness?.score || 0} label="Completeness" />
+              <ScoreBar score={dataQuality.consistency?.score || 0} label="Consistency" />
+              <ScoreBar score={dataQuality.accuracy?.score || 0} label="Accuracy" />
             </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <ScoreBar score={analysis.data_quality.completeness?.score || 0} label="Completeness" />
-            <ScoreBar score={analysis.data_quality.consistency?.score || 0} label="Consistency" />
-            <ScoreBar score={analysis.data_quality.accuracy?.score || 0} label="Accuracy" />
-          </div>
-        </div>
 
-        {/* Recommendations */}
-        <div style={{ display: 'grid', gap: '12px' }}>
-          {analysis.data_quality.completeness?.recommendation && (
-            <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
-              <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 600, color: '#0d9488', textTransform: 'uppercase' }}>Completeness</p>
-              <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>{analysis.data_quality.completeness.recommendation}</p>
-            </div>
-          )}
-          {analysis.data_quality.consistency?.recommendation && (
-            <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
-              <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 600, color: '#0d9488', textTransform: 'uppercase' }}>Consistency</p>
-              <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>{analysis.data_quality.consistency.recommendation}</p>
-            </div>
-          )}
-          {analysis.data_quality.accuracy?.recommendation && (
-            <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
-              <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 600, color: '#0d9488', textTransform: 'uppercase' }}>Accuracy</p>
-              <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>{analysis.data_quality.accuracy.recommendation}</p>
-            </div>
-          )}
+          {/* Recommendations */}
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {dataQuality.completeness?.recommendation && (
+              <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 600, color: '#0d9488', textTransform: 'uppercase' }}>Completeness</p>
+                <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>{dataQuality.completeness.recommendation}</p>
+              </div>
+            )}
+            {dataQuality.consistency?.recommendation && (
+              <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 600, color: '#0d9488', textTransform: 'uppercase' }}>Consistency</p>
+                <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>{dataQuality.consistency.recommendation}</p>
+              </div>
+            )}
+            {dataQuality.accuracy?.recommendation && (
+              <div style={{ padding: '16px', background: '#f9fafb', borderRadius: '8px' }}>
+                <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 600, color: '#0d9488', textTransform: 'uppercase' }}>Accuracy</p>
+                <p style={{ margin: 0, fontSize: '14px', color: '#374151', lineHeight: 1.6 }}>{dataQuality.accuracy.recommendation}</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Bias Analysis */}
       {biases.length > 0 && (
