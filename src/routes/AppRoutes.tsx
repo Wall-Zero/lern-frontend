@@ -10,11 +10,9 @@ import { PrivateRoute } from './PrivateRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 import { Dashboard } from '../pages/dashboard/Dashboard';
 import { Predictions } from '../pages/predictions/Predictions';
+import { Marketplace } from '../pages/marketplace/Marketplace';
 import { PollingProvider } from '../context/PollingContext';
 import Landing from '../pages/landing/Landing';
-
-// Placeholder components (crearemos después)
-const Marketplace = () => <div>Marketplace - Coming soon</div>;
 
 export const AppRoutes = () => {
   return (
