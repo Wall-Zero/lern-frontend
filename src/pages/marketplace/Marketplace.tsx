@@ -85,7 +85,8 @@ export const Marketplace = () => {
         data_source_id: selectedDataset.id,
         intent: suggestionsIntent || undefined,
       });
-      setSuggestions(response.suggestions || []);
+      const suggestionsData = response.suggestions;
+      setSuggestions(Array.isArray(suggestionsData) ? suggestionsData : []);
       setViewMode('suggestions');
     } catch (error) {
       console.error('Failed to get suggestions:', error);
@@ -430,7 +431,7 @@ export const Marketplace = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {Object.entries(catalog).map(([category, series]) => {
                     const meta = categoryLabels[category] || { label: category, icon: '', color: '#6b7280' };
-                    const seriesObj = series as Record<string, { id: string; name: string; frequency: string }>;
+                    const seriesObj = (series && typeof series === 'object') ? series as Record<string, { id: string; name: string; frequency: string }> : {};
                     const seriesArray = Object.entries(seriesObj);
                     const isExpanded = expandedCategory === category;
 
@@ -656,7 +657,7 @@ export const Marketplace = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {previewData.preview.map((row, i) => (
+                        {(Array.isArray(previewData.preview) ? previewData.preview : []).map((row, i) => (
                           <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
                             <td style={{ padding: '10px', color: '#6b7280' }}>{row.date}</td>
                             <td style={{ padding: '10px', textAlign: 'right', color: '#111827', fontFamily: 'monospace' }}>
@@ -718,7 +719,7 @@ export const Marketplace = () => {
                   </div>
                 </div>
 
-                {mergeResult.preview && mergeResult.preview.length > 0 && (
+                {Array.isArray(mergeResult.preview) && mergeResult.preview.length > 0 && (
                   <div style={{ overflow: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                       <thead>
