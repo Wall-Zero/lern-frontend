@@ -1,5 +1,5 @@
 import apiClient from '../client';
-import type { Dataset, DatasetListResponse, CreateDatasetRequest } from '../../types/dataset.types';
+import type { Dataset, DatasetListResponse, CreateDatasetRequest, DataInsightsRequest, DataInsightsResponse } from '../../types/dataset.types';
 
 export interface DatasetPreview {
   columns: string[];
@@ -47,5 +47,10 @@ export const datasetsApi = {
 
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/data-sources/${id}/`);
+  },
+
+  getInsights: async (request: DataInsightsRequest): Promise<DataInsightsResponse> => {
+    const response = await apiClient.post('/ai-tools/data_insights/', request);
+    return response.data;
   },
 };
