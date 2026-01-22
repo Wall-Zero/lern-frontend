@@ -35,7 +35,12 @@ export interface SuggestRequest {
 }
 
 export interface SuggestResponse {
-  suggestions: AISuggestion[];
+  success: boolean;
+  data_source: { id: number; name: string };
+  suggestions: {
+    suggestions: AISuggestion[];
+    general_recommendations?: string[];
+  };
 }
 
 // Fetch External Data Types

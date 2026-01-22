@@ -85,8 +85,7 @@ export const Marketplace = () => {
         data_source_id: selectedDataset.id,
         intent: suggestionsIntent || undefined,
       });
-      // Backend returns nested: { suggestions: { suggestions: [...] } }
-      const suggestionsData = response.suggestions?.suggestions || response.suggestions;
+      const suggestionsData = response.suggestions.suggestions;
       setSuggestions(Array.isArray(suggestionsData) ? suggestionsData : []);
       setViewMode('suggestions');
     } catch (error) {
