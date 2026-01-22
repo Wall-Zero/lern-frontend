@@ -3,6 +3,7 @@ import { Login } from '../pages/auth/Login';
 import { Register } from '../pages/auth/Register';
 import { DatasetsList } from '../pages/datasets/DatasetsList';
 import { DatasetDetail } from '../pages/datasets/DatasetDetail';
+import { DatasetInsights } from '../pages/datasets/DatasetInsights';
 import { AnalysisList } from '../pages/analysis/AnalysisList';
 import { AnalysisDetail } from '../pages/analysis/AnalysisDetail';
 import { PrivateRoute } from './PrivateRoute';
@@ -56,7 +57,18 @@ export const AppRoutes = () => {
             </PrivateRoute>
           }
         />
-        
+
+        <Route
+          path="/datasets/:id/insights"
+          element={
+            <PrivateRoute>
+              <AppLayout>
+                <DatasetInsights />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+
         <Route
           path="/analysis"
           element={

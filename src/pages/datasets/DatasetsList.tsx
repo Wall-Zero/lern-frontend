@@ -5,7 +5,6 @@ import { datasetsApi, type DatasetPreview } from '../../api/endpoints/datasets';
 import type { Dataset, DatasetColumn } from '../../types/dataset.types';
 import { Spinner } from '../../components/common/Spinner';
 import { UploadDatasetModal } from '../../components/dataset/UploadDatasetModal';
-import { DataInsightsModal } from '../../components/dataset/DataInsightsModal';
 
 type ViewMode = 'table' | 'grid';
 type SortField = 'name' | 'created_at' | 'row_count' | 'file_size';
@@ -42,9 +41,6 @@ export const DatasetsList = () => {
 
   // Column inspector state
   const [inspectingColumn, setInspectingColumn] = useState<{ dataset: Dataset; column: DatasetColumn } | null>(null);
-
-  // Data insights modal state
-  const [insightsDataset, setInsightsDataset] = useState<Dataset | null>(null);
 
   useEffect(() => {
     loadDatasets();
@@ -1273,7 +1269,7 @@ export const DatasetsList = () => {
                       </button>
                       <button
                         className="simple-action-btn secondary"
-                        onClick={() => setInsightsDataset(dataset)}
+                        onClick={() => navigate(`/datasets/${dataset.id}/insights`)}
                         disabled={dataset.status !== 'connected'}
                         title="AI-powered data analysis"
                       >
@@ -1539,7 +1535,7 @@ export const DatasetsList = () => {
                         </button>
                         <button
                           className="action-btn"
-                          onClick={() => setInsightsDataset(dataset)}
+                          onClick={() => navigate(`/datasets/${dataset.id}/insights`)}
                           title="AI Insights"
                           disabled={dataset.status !== 'connected'}
                           style={{ color: dataset.status === 'connected' ? '#8b5cf6' : undefined }}
@@ -1636,7 +1632,7 @@ export const DatasetsList = () => {
                   </button>
                   <button
                     className="grid-action-btn"
-                    onClick={(e) => { e.stopPropagation(); setInsightsDataset(dataset); }}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/datasets/${dataset.id}/insights`); }}
                     disabled={dataset.status !== 'connected'}
                     style={{ color: '#8b5cf6' }}
                   >
@@ -1876,12 +1872,6 @@ export const DatasetsList = () => {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onUpload={handleUpload}
-      />
-
-      <DataInsightsModal
-        isOpen={insightsDataset !== null}
-        onClose={() => setInsightsDataset(null)}
-        dataset={insightsDataset}
       />
     </div>
   );
