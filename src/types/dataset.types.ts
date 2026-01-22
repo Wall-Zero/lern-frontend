@@ -37,54 +37,81 @@ export interface CreateDatasetRequest {
 }
 
 // Data Insights Types
-export interface DataQuality {
-  overall_score: number;
-  completeness: number;
-  consistency: number;
-  accuracy: number;
-  recommendations: string[];
-}
-
-export interface BiasAnalysis {
-  type: string;
-  affected_column: string;
-  severity: 'low' | 'medium' | 'high';
-  description: string;
-  impact_on_ml: string;
-  how_to_fix: string;
-}
-
-export interface FeatureInsights {
-  highly_predictive: string[];
-  redundant: string[];
-  needs_transformation: string[];
-  feature_engineering_ideas: string[];
-}
-
-export interface MLReadiness {
-  status: 'ready' | 'needs_work' | 'not_suitable';
-  strengths: string[];
-  weaknesses: string[];
-  preprocessing_steps: string[];
-  recommended_algorithms: string[];
-}
-
-export interface ProviderAnalysis {
-  provider: string;
-  data_quality: DataQuality;
-  bias_analysis: BiasAnalysis[];
-  feature_insights: FeatureInsights;
-  ml_readiness: MLReadiness;
-  summary: string;
-}
-
 export interface DataInsightsResponse {
-  data_source_id: number;
-  analyses: ProviderAnalysis[];
-  comparison: {
-    agreements: string[];
-    disagreements: string[];
+  data_source: {
+    id: number;
+    name: string;
+    type: string;
+    row_count: number;
+    column_count: number;
   };
+  intent: string;
+  analyses: {
+    claude?: ProviderAnalysisResult;
+    gemini?: ProviderAnalysisResult;
+  };
+  comparison: {
+    agreement: string[];
+    disagreement: string[];
+    unique_insights: {
+      claude?: { biases_detected: string[] };
+      gemini?: { biases_detected: string[] };
+    };
+  };
+}
+
+export interface ProviderAnalysisResult {
+  success: boolean;
+  data_quality: {
+    overall_score: number;
+    completeness: {
+      score: number;
+      missing_data_columns: string[];
+      recommendation: string;
+    };
+    consistency: {
+      score: number;
+      issues: string[];
+      recommendation: string;
+    };
+    accuracy: {
+      score: number;
+      potential_errors: string[];
+      recommendation: string;
+    };
+  };
+  bias_analysis: {
+    detected_biases: {
+      type: string;
+      column: string;
+      severity: 'low' | 'medium' | 'high';
+      description: string;
+      impact: string;
+      mitigation: string;
+    }[];
+    fairness_concerns: string[];
+    recommendations: string[];
+  };
+  feature_insights: {
+    highly_predictive: string[];
+    potentially_redundant: string[];
+    needs_transformation: {
+      column: string;
+      issue: string;
+      suggested_transform: string;
+    }[];
+    feature_engineering_ideas: string[];
+  };
+  ml_readiness: {
+    overall_readiness: 'ready' | 'needs_work' | 'not_suitable';
+    strengths: string[];
+    weaknesses: string[];
+    recommended_preprocessing: string[];
+    suitable_algorithms: string[];
+    expected_challenges: string[];
+  };
+  summary: string;
+  provider: string;
 }
 
 export interface DataInsightsRequest {
