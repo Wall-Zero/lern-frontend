@@ -4,14 +4,15 @@ import { Toaster } from 'react-hot-toast';
 
 interface AppLayoutProps {
   children: ReactNode;
+  hideSidebar?: boolean;
 }
 
-export const AppLayout = ({ children }: AppLayoutProps) => {
+export const AppLayout = ({ children, hideSidebar }: AppLayoutProps) => {
   return (
     <>
       <Toaster position="top-right" />
       <div className="flex min-h-screen bg-gray-50">
-        <Sidebar />
+        {!hideSidebar && <Sidebar />}
         <main className="flex-1 overflow-auto">
           {children}
         </main>
