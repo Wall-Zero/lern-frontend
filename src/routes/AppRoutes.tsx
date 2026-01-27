@@ -13,6 +13,7 @@ import { Predictions } from '../pages/predictions/Predictions';
 import { Marketplace } from '../pages/marketplace/Marketplace';
 import { PollingProvider } from '../context/PollingContext';
 import Landing from '../pages/landing/Landing';
+import { Workspace } from '../pages/workspace/Workspace';
 
 export const AppRoutes = () => {
   return (
@@ -100,6 +101,17 @@ export const AppRoutes = () => {
           }
         />
         
+        <Route
+          path="/workspace"
+          element={
+            <PrivateRoute>
+              <AppLayout hideSidebar>
+                <Workspace />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+
         <Route
           path="/marketplace"
           element={
