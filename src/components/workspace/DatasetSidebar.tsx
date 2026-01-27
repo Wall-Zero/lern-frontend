@@ -7,6 +7,9 @@ export const DatasetSidebar = () => {
   const { state, selectDataset, uploadDataset, setStage } = useWorkspace();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadBtnHovered, setIsUploadBtnHovered] = useState(false);
+  const [hoveredDatasetId, setHoveredDatasetId] = useState<string | null>(null);
+  const [isDropzoneHovered, setIsDropzoneHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (file: File) => {
@@ -46,15 +49,20 @@ export const DatasetSidebar = () => {
 
       {/* Upload dropzone */}
       <div
-        className={`mx-3 mt-3 p-3 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${
+        className="mx-3 mt-3 p-3 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors"
+        style={
           isDragOver
-            ? 'border-primary-400 bg-primary-50'
-            : 'border-gray-300 hover:border-primary-300 hover:bg-gray-50'
-        }`}
+            ? { borderColor: '#0d9488', background: '#f0fdfa' }
+            : isDropzoneHovered
+              ? { borderColor: '#5eead4', background: '#f9fafb' }
+              : { borderColor: '#d1d5db' }
+        }
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={() => setIsDragOver(false)}
         onClick={() => fileInputRef.current?.click()}
+        onMouseEnter={() => setIsDropzoneHovered(true)}
+        onMouseLeave={() => setIsDropzoneHovered(false)}
       >
         <input
           ref={fileInputRef}
@@ -84,6 +92,7 @@ export const DatasetSidebar = () => {
         <AnimatePresence>
           {state.datasets.map((ds) => {
             const isActive = state.activeDataset?.id === ds.id;
+            const isHovered = hoveredDatasetId === ds.id;
             return (
               <motion.button
                 key={ds.id}
@@ -91,18 +100,32 @@ export const DatasetSidebar = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 onClick={() => selectDataset(ds.id)}
-                className={`w-full text-left p-3 rounded-lg transition-colors ${
+                onMouseEnter={() => setHoveredDatasetId(ds.id)}
+                onMouseLeave={() => setHoveredDatasetId(null)}
+                className="w-full text-left p-3 rounded-lg transition-colors"
+                style={
                   isActive
-                    ? 'bg-primary-50 border border-primary-200'
-                    : 'hover:bg-gray-50 border border-transparent'
-                }`}
+                    ? { background: '#f0fdfa', border: '1px solid #99f6e4' }
+                    : isHovered
+                      ? { background: '#f9fafb', border: '1px solid transparent' }
+                      : { border: '1px solid transparent' }
+                }
               >
                 <div className="flex items-center gap-2">
-                  <svg className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-primary-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    className="w-4 h-4 flex-shrink-0"
+                    style={{ color: isActive ? '#0d9488' : '#9ca3af' }}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                   </svg>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${isActive ? 'text-primary-700' : 'text-gray-900'}`}>
+                    <p
+                      className="text-sm font-medium truncate"
+                      style={{ color: isActive ? '#0f766e' : '#111827' }}
+                    >
                       {ds.name}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -129,7 +152,13 @@ export const DatasetSidebar = () => {
       <div className="p-3 border-t border-gray-200">
         <button
           onClick={() => setStage('upload')}
-          className="w-full px-3 py-2 text-xs font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+          onMouseEnter={() => setIsUploadBtnHovered(true)}
+          onMouseLeave={() => setIsUploadBtnHovered(false)}
+          className="w-full px-3 py-2 text-xs font-medium rounded-lg transition-colors"
+          style={{
+            color: '#0d9488',
+            background: isUploadBtnHovered ? '#ccfbf1' : '#f0fdfa',
+          }}
         >
           + Upload new dataset
         </button>

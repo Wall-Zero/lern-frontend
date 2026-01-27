@@ -40,8 +40,8 @@ export const TrainPanel = () => {
 
   if (!activeTool || !activeTool.analysis) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-400">
-        <p>No analysis available. Go back and run an analysis first.</p>
+      <div className="flex items-center justify-center h-full" style={{ color: '#9ca3af' }}>
+        <p style={{ fontFamily: '"Outfit", sans-serif' }}>No analysis available. Go back and run an analysis first.</p>
       </div>
     );
   }
@@ -95,97 +95,170 @@ export const TrainPanel = () => {
   };
 
   return (
-    <div className="p-6 space-y-8 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Configure & Train</h1>
-        <p className="text-sm text-gray-500 mt-1">Customize your model before training</p>
-      </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-      {/* Algorithm selection */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">1. Select Algorithm</h3>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {approaches.map((approach, idx) => (
-            <AlgorithmCard
-              key={idx}
-              algorithm={approach}
-              isRecommended={idx === 0}
-              isSelected={idx === selectedApproachIdx}
-              onClick={() => handleApproachSelect(idx)}
-            />
-          ))}
+        .train-panel {
+          font-family: 'Outfit', sans-serif;
+          background: #f9fafb;
+        }
+        .train-heading {
+          font-family: 'Outfit', sans-serif;
+          font-weight: 700;
+          font-size: 20px;
+          color: #111827;
+        }
+        .train-subtitle {
+          font-family: 'Outfit', sans-serif;
+          font-size: 14px;
+          color: #6b7280;
+          margin-top: 4px;
+        }
+        .train-section-heading {
+          font-family: 'Outfit', sans-serif;
+          font-weight: 600;
+          font-size: 18px;
+          color: #111827;
+          margin-bottom: 16px;
+        }
+        .train-card {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+          padding: 24px;
+        }
+        .train-card:hover {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .train-result-card {
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          border-radius: 12px;
+          padding: 24px;
+        }
+        .train-result-title {
+          font-family: 'Outfit', sans-serif;
+          font-weight: 600;
+          font-size: 18px;
+          color: #166534;
+          margin-bottom: 12px;
+        }
+        .train-metric-card {
+          background: #fff;
+          border: 1px solid #bbf7d0;
+          border-radius: 8px;
+          padding: 12px;
+        }
+        .train-metric-label {
+          font-family: 'Outfit', sans-serif;
+          font-size: 12px;
+          color: #6b7280;
+          text-transform: uppercase;
+        }
+        .train-metric-value {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 18px;
+          font-weight: 700;
+          color: #111827;
+        }
+        .train-action-bar {
+          padding-top: 16px;
+          border-top: 1px solid #e5e7eb;
+        }
+      `}</style>
+      <div className="p-6 space-y-8 max-w-4xl mx-auto train-panel">
+        <div>
+          <h1 className="train-heading">Configure & Train</h1>
+          <p className="train-subtitle">Customize your model before training</p>
         </div>
-      </div>
 
-      {/* Feature selection */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">2. Select Features</h3>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <FeatureSelector
-            features={features}
-            selectedFeatures={selectedFeatures}
-            targetColumn={targetColumn}
-            temporalColumn={temporalColumn}
-            hasTemporalData={hasTemporalData}
-            onFeaturesChange={setSelectedFeatures}
-            onTargetChange={setTargetColumn}
-            onTemporalChange={setTemporalColumn}
-            onHasTemporalChange={setHasTemporalData}
-          />
-        </div>
-      </div>
-
-      {/* Training config */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">3. Training Configuration</h3>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <TrainingConfig
-            trainTestSplit={trainTestSplit}
-            hyperparameters={hyperparameters}
-            onSplitChange={setTrainTestSplit}
-            onHyperparametersChange={setHyperparameters}
-          />
-        </div>
-      </div>
-
-      {/* Training result */}
-      {trainingResult && trainingResult.success && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-green-50 border border-green-200 rounded-xl p-6"
-        >
-          <h3 className="text-lg font-semibold text-green-800 mb-3">Training Complete!</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {trainingResult.version?.metrics &&
-              Object.entries(trainingResult.version.metrics).map(([key, value]) => (
-                <div key={key} className="bg-white rounded-lg p-3 border border-green-200">
-                  <p className="text-xs text-gray-500 uppercase">{key}</p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {typeof value === 'number' ? value.toFixed(4) : String(value)}
-                  </p>
-                </div>
-              ))}
+        {/* Algorithm selection */}
+        <div>
+          <h3 className="train-section-heading">1. Select Algorithm</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {approaches.map((approach, idx) => (
+              <AlgorithmCard
+                key={idx}
+                algorithm={approach}
+                isRecommended={idx === 0}
+                isSelected={idx === selectedApproachIdx}
+                onClick={() => handleApproachSelect(idx)}
+              />
+            ))}
           </div>
-          <Button onClick={() => setStage('predict')} className="mt-4">
-            Go to Predictions
-          </Button>
-        </motion.div>
-      )}
-
-      {/* Train button */}
-      {!trainingResult && (
-        <div className="pt-4 border-t border-gray-200">
-          <Button
-            onClick={handleTrain}
-            isLoading={isTraining}
-            disabled={!targetColumn || selectedFeatures.length === 0 || isTraining}
-            className="w-full"
-          >
-            {isTraining ? 'Training model...' : 'Start Training'}
-          </Button>
         </div>
-      )}
-    </div>
+
+        {/* Feature selection */}
+        <div>
+          <h3 className="train-section-heading">2. Select Features</h3>
+          <div className="train-card">
+            <FeatureSelector
+              features={features}
+              selectedFeatures={selectedFeatures}
+              targetColumn={targetColumn}
+              temporalColumn={temporalColumn}
+              hasTemporalData={hasTemporalData}
+              onFeaturesChange={setSelectedFeatures}
+              onTargetChange={setTargetColumn}
+              onTemporalChange={setTemporalColumn}
+              onHasTemporalChange={setHasTemporalData}
+            />
+          </div>
+        </div>
+
+        {/* Training config */}
+        <div>
+          <h3 className="train-section-heading">3. Training Configuration</h3>
+          <div className="train-card">
+            <TrainingConfig
+              trainTestSplit={trainTestSplit}
+              hyperparameters={hyperparameters}
+              onSplitChange={setTrainTestSplit}
+              onHyperparametersChange={setHyperparameters}
+            />
+          </div>
+        </div>
+
+        {/* Training result */}
+        {trainingResult && trainingResult.success && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="train-result-card"
+          >
+            <h3 className="train-result-title">Training Complete!</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {trainingResult.version?.metrics &&
+                Object.entries(trainingResult.version.metrics).map(([key, value]) => (
+                  <div key={key} className="train-metric-card">
+                    <p className="train-metric-label">{key}</p>
+                    <p className="train-metric-value">
+                      {typeof value === 'number' ? value.toFixed(4) : String(value)}
+                    </p>
+                  </div>
+                ))}
+            </div>
+            <Button onClick={() => setStage('predict')} className="mt-4">
+              Go to Predictions
+            </Button>
+          </motion.div>
+        )}
+
+        {/* Train button */}
+        {!trainingResult && (
+          <div className="train-action-bar">
+            <Button
+              onClick={handleTrain}
+              isLoading={isTraining}
+              disabled={!targetColumn || selectedFeatures.length === 0 || isTraining}
+              className="w-full"
+            >
+              {isTraining ? 'Training model...' : 'Start Training'}
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
   );
 };

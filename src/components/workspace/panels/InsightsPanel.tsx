@@ -13,8 +13,8 @@ export const InsightsPanel = () => {
 
   if (!activeTool || !activeTool.analysis) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-400">
-        <p>No analysis available. Go back to Explore and run an analysis.</p>
+      <div className="flex items-center justify-center h-full" style={{ color: '#9ca3af' }}>
+        <p style={{ fontFamily: '"Outfit", sans-serif' }}>No analysis available. Go back to Explore and run an analysis.</p>
       </div>
     );
   }
@@ -42,116 +42,185 @@ export const InsightsPanel = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">AI Analysis Results</h1>
-        <p className="text-sm text-gray-500 mt-1">Analysis for: {activeTool.name}</p>
-      </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-      {/* Feasibility */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-xl border border-gray-200 p-6"
-      >
-        <div className="flex items-center gap-4 mb-4">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-            analysis.feasible ? 'bg-green-100' : 'bg-red-100'
-          }`}>
-            {analysis.feasible ? (
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            )}
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              {analysis.feasible ? 'Analysis is Feasible' : 'Analysis May Not Be Feasible'}
-            </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant={analysis.confidence > 0.7 ? 'success' : analysis.confidence > 0.4 ? 'yellow' : 'error'}>
-                {Math.round(analysis.confidence * 100)}% confidence
-              </Badge>
+        .insights-panel {
+          font-family: 'Outfit', sans-serif;
+          background: #f9fafb;
+        }
+        .insights-card {
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 12px;
+        }
+        .insights-card:hover {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .insights-heading {
+          font-family: 'Outfit', sans-serif;
+          font-weight: 700;
+          font-size: 20px;
+          color: #111827;
+        }
+        .insights-subheading {
+          font-family: 'Outfit', sans-serif;
+          font-weight: 600;
+          font-size: 18px;
+          color: #111827;
+        }
+        .insights-subtitle {
+          font-family: 'Outfit', sans-serif;
+          font-size: 14px;
+          color: #6b7280;
+          margin-top: 4px;
+        }
+        .insights-confidence-value {
+          font-family: 'JetBrains Mono', monospace;
+        }
+        .insights-action-bar {
+          display: flex;
+          gap: 16px;
+          padding-top: 16px;
+          border-top: 1px solid #e5e7eb;
+        }
+      `}</style>
+      <div className="p-6 space-y-6 max-w-4xl mx-auto insights-panel">
+        {/* Header */}
+        <div>
+          <h1 className="insights-heading">AI Analysis Results</h1>
+          <p className="insights-subtitle">Analysis for: {activeTool.name}</p>
+        </div>
+
+        {/* Feasibility */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="insights-card"
+          style={{ padding: '24px' }}
+        >
+          <div className="flex items-center gap-4 mb-4">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center"
+              style={{
+                background: analysis.feasible ? '#dcfce7' : '#fee2e2',
+              }}
+            >
+              {analysis.feasible ? (
+                <svg className="w-6 h-6" style={{ color: '#16a34a' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" style={{ color: '#dc2626' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+            </div>
+            <div>
+              <h3 className="insights-subheading">
+                {analysis.feasible ? 'Analysis is Feasible' : 'Analysis May Not Be Feasible'}
+              </h3>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant={analysis.confidence > 0.7 ? 'success' : analysis.confidence > 0.4 ? 'yellow' : 'error'}>
+                  <span className="insights-confidence-value">
+                    {Math.round(analysis.confidence * 100)}% confidence
+                  </span>
+                </Badge>
+              </div>
             </div>
           </div>
-        </div>
-        <p className="text-sm text-gray-600">{analysis.reasoning}</p>
-      </motion.div>
+          <p style={{ fontSize: '14px', color: '#6b7280', fontFamily: '"Outfit", sans-serif' }}>{analysis.reasoning}</p>
+        </motion.div>
 
-      {/* Warnings */}
-      {analysis.warnings && analysis.warnings.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-yellow-800 mb-2">Warnings</h3>
-          <ul className="space-y-1">
-            {analysis.warnings.map((w, i) => (
-              <li key={i} className="text-sm text-yellow-700 flex items-start gap-2">
-                <span className="text-yellow-500 mt-0.5">!</span>
-                {w}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Recommendations */}
-      {analysis.recommendations && analysis.recommendations.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-blue-800 mb-2">Recommendations</h3>
-          <ul className="space-y-1">
-            {analysis.recommendations.map((r, i) => (
-              <li key={i} className="text-sm text-blue-700 flex items-start gap-2">
-                <span className="text-blue-500 mt-0.5">*</span>
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Approaches */}
-      {approaches.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Suggested Approaches ({approaches.length})
-          </h3>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {approaches.map((approach, idx) => (
-              <AlgorithmCard
-                key={idx}
-                algorithm={approach}
-                isRecommended={idx === 0}
-                isSelected={idx === selectedApproachIdx}
-                onClick={() => setSelectedApproachIdx(idx)}
-              />
-            ))}
+        {/* Warnings */}
+        {analysis.warnings && analysis.warnings.length > 0 && (
+          <div
+            style={{
+              background: '#fefce8',
+              border: '1px solid #fde68a',
+              borderRadius: '12px',
+              padding: '16px',
+            }}
+          >
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#854d0e', marginBottom: '8px', fontFamily: '"Outfit", sans-serif' }}>
+              Warnings
+            </h3>
+            <ul className="space-y-1">
+              {analysis.warnings.map((w, i) => (
+                <li key={i} className="flex items-start gap-2" style={{ fontSize: '14px', color: '#a16207' }}>
+                  <span style={{ color: '#ca8a04', marginTop: '2px' }}>!</span>
+                  {w}
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Action buttons */}
-      {analysis.feasible && approaches.length > 0 && (
-        <div className="flex gap-4 pt-4 border-t border-gray-200">
-          <Button
-            onClick={handleQuickTrain}
-            isLoading={isQuickTraining}
-            className="flex-1"
+        {/* Recommendations */}
+        {analysis.recommendations && analysis.recommendations.length > 0 && (
+          <div
+            style={{
+              background: '#f0fdfa',
+              border: '1px solid #99f6e4',
+              borderRadius: '12px',
+              padding: '16px',
+            }}
           >
-            Quick Train with {selectedApproach?.name || 'selected approach'}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setStage('train')}
-            className="flex-1"
-          >
-            Customize Training
-          </Button>
-        </div>
-      )}
-    </div>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0f766e', marginBottom: '8px', fontFamily: '"Outfit", sans-serif' }}>
+              Recommendations
+            </h3>
+            <ul className="space-y-1">
+              {analysis.recommendations.map((r, i) => (
+                <li key={i} className="flex items-start gap-2" style={{ fontSize: '14px', color: '#0d9488' }}>
+                  <span style={{ color: '#14b8a6', marginTop: '2px' }}>*</span>
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Approaches */}
+        {approaches.length > 0 && (
+          <div>
+            <h3 className="insights-subheading" style={{ marginBottom: '16px' }}>
+              Suggested Approaches ({approaches.length})
+            </h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {approaches.map((approach, idx) => (
+                <AlgorithmCard
+                  key={idx}
+                  algorithm={approach}
+                  isRecommended={idx === 0}
+                  isSelected={idx === selectedApproachIdx}
+                  onClick={() => setSelectedApproachIdx(idx)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        {analysis.feasible && approaches.length > 0 && (
+          <div className="insights-action-bar">
+            <Button
+              onClick={handleQuickTrain}
+              isLoading={isQuickTraining}
+              className="flex-1"
+            >
+              Quick Train with {selectedApproach?.name || 'selected approach'}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setStage('train')}
+              className="flex-1"
+            >
+              Customize Training
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
   );
 };

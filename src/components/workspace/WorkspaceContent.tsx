@@ -17,7 +17,7 @@ export const WorkspaceContent = () => {
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50">
+    <div style={{ flex: 1, overflow: 'auto', background: '#f9fafb' }}>
       {panels[state.stage]}
     </div>
   );

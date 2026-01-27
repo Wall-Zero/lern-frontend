@@ -11,12 +11,19 @@ export const ExplorePanel = () => {
 
   if (!activeDataset) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-400">
-        <div className="text-center">
-          <svg className="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        color: '#9ca3af',
+        fontFamily: "'Outfit', sans-serif"
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <svg style={{ margin: '0 auto 16px', display: 'block' }} height="48" width="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7" />
           </svg>
-          <p>Select a dataset from the sidebar to explore</p>
+          <p style={{ margin: 0, fontSize: '15px' }}>Select a dataset from the sidebar to explore</p>
         </div>
       </div>
     );
@@ -33,106 +40,266 @@ export const ExplorePanel = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">{activeDataset.name}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {activeDataset.row_count} rows &middot; {previewColumns.length} columns &middot; {activeDataset.type.toUpperCase()}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={toggleMarketplace}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            + External Data
-          </button>
-        </div>
-      </div>
+    <div style={{ padding: '24px', fontFamily: "'Outfit', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-      {/* Column summary */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Columns</h3>
-        <div className="flex flex-wrap gap-2">
-          {activeDataset.columns.map((col) => (
-            <span
-              key={col.name}
-              className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+        .explore-panel { font-family: 'Outfit', sans-serif; }
+
+        /* Secondary button */
+        .explore-external-btn {
+          padding: 8px 16px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #374151;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s;
+          font-family: 'Outfit', sans-serif;
+        }
+        .explore-external-btn:hover {
+          background: #f9fafb;
+          border-color: #d1d5db;
+        }
+
+        /* Column tags */
+        .explore-column-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 500;
+          background: #f3f4f6;
+          color: #374151;
+          font-family: 'Outfit', sans-serif;
+          transition: all 0.15s;
+        }
+        .explore-column-tag:hover {
+          background: #f0fdfa;
+          color: #0d9488;
+        }
+        .explore-column-type {
+          color: #9ca3af;
+        }
+
+        /* Data table - matches preview-data-table from DatasetsList */
+        .explore-data-table {
+          width: 100%;
+          overflow-x: auto;
+        }
+        .explore-data-table table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+        }
+        .explore-data-table th {
+          text-align: left;
+          padding: 10px 12px;
+          background: #f3f4f6;
+          font-size: 12px;
+          font-weight: 600;
+          color: #4b5563;
+          font-family: 'JetBrains Mono', monospace;
+          border-bottom: 1px solid #e5e7eb;
+          white-space: nowrap;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .explore-data-table td {
+          padding: 10px 12px;
+          border-bottom: 1px solid #f3f4f6;
+          font-family: 'JetBrains Mono', monospace;
+          color: #374151;
+          max-width: 200px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .explore-data-table td.row-num {
+          color: #9ca3af;
+          font-size: 12px;
+          width: 48px;
+        }
+        .explore-data-table tr:hover td {
+          background: #f9fafb;
+        }
+        .explore-data-table .null-value {
+          color: #d1d5db;
+          font-style: italic;
+        }
+
+        /* AI Insights input */
+        .explore-insights-input {
+          flex: 1;
+          padding: 12px 16px;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          font-size: 14px;
+          font-family: 'Outfit', sans-serif;
+          outline: none;
+          transition: all 0.15s;
+        }
+        .explore-insights-input:focus {
+          border-color: #0d9488;
+          box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+        }
+        .explore-insights-input::placeholder {
+          color: #9ca3af;
+        }
+      `}</style>
+
+      <div className="explore-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{
+              fontSize: '20px',
+              fontWeight: 700,
+              color: '#111827',
+              margin: '0 0 4px 0'
+            }}>{activeDataset.name}</h1>
+            <p style={{
+              fontSize: '13px',
+              color: '#6b7280',
+              margin: 0,
+              fontFamily: "'JetBrains Mono', monospace"
+            }}>
+              {activeDataset.row_count} rows &middot; {previewColumns.length} columns &middot; {activeDataset.type.toUpperCase()}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={toggleMarketplace}
+              className="explore-external-btn"
             >
-              {col.name}
-              <span className="text-gray-400">({col.type})</span>
-            </span>
-          ))}
+              + External Data
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Data table */}
-      {previewData && previewData.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">#</th>
-                  {previewColumns.map((col) => (
-                    <th key={col} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {previewData.slice(0, 20).map((row, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-xs text-gray-400">{i + 1}</td>
+        {/* Column summary */}
+        <div style={{
+          background: '#fff',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          padding: '16px'
+        }}>
+          <h3 style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: '#111827',
+            margin: '0 0 12px 0'
+          }}>Columns</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {activeDataset.columns.map((col) => (
+              <span
+                key={col.name}
+                className="explore-column-tag"
+              >
+                {col.name}
+                <span className="explore-column-type">({col.type})</span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Data table */}
+        {previewData && previewData.length > 0 && (
+          <div style={{
+            background: '#fff',
+            borderRadius: '12px',
+            border: '1px solid #e5e7eb',
+            overflow: 'hidden'
+          }}>
+            <div className="explore-data-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: '48px' }}>#</th>
                     {previewColumns.map((col) => (
-                      <td key={col} className="px-4 py-2 text-gray-700 whitespace-nowrap max-w-[200px] truncate">
-                        {row[col] != null ? String(row[col]) : <span className="text-gray-300">null</span>}
-                      </td>
+                      <th key={col}>
+                        {col}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {previewData.length > 20 && (
-            <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500 border-t border-gray-200">
-              Showing 20 of {previewData.length} preview rows ({activeDataset.row_count} total)
+                </thead>
+                <tbody>
+                  {previewData.slice(0, 20).map((row, i) => (
+                    <tr key={i}>
+                      <td className="row-num">{i + 1}</td>
+                      {previewColumns.map((col) => (
+                        <td key={col}>
+                          {row[col] != null ? String(row[col]) : <span className="null-value">null</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </div>
-      )}
+            {previewData.length > 20 && (
+              <div style={{
+                padding: '8px 16px',
+                background: '#f9fafb',
+                fontSize: '12px',
+                color: '#6b7280',
+                borderTop: '1px solid #e5e7eb',
+                fontFamily: "'JetBrains Mono', monospace"
+              }}>
+                Showing 20 of {previewData.length} preview rows ({activeDataset.row_count} total)
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* AI Insights prompt */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-primary-50 to-purple-50 border border-primary-200 rounded-xl p-6"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Get AI Insights</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Describe what you want to predict or analyze, and AI will suggest the best approach.
-        </p>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={intent}
-            onChange={(e) => setIntent(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleGetInsights()}
-            placeholder="e.g., I want to predict house prices based on features..."
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
-          <Button
-            onClick={handleGetInsights}
-            isLoading={isAnalyzing}
-            disabled={!intent.trim() || isAnalyzing}
-          >
-            Analyze
-          </Button>
-        </div>
-      </motion.div>
+        {/* AI Insights prompt */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
+            border: '1px solid #99f6e4',
+            borderRadius: '12px',
+            padding: '24px'
+          }}
+        >
+          <h3 style={{
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#111827',
+            margin: '0 0 8px 0'
+          }}>Get AI Insights</h3>
+          <p style={{
+            fontSize: '14px',
+            color: '#6b7280',
+            margin: '0 0 16px 0',
+            lineHeight: 1.5
+          }}>
+            Describe what you want to predict or analyze, and AI will suggest the best approach.
+          </p>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <input
+              type="text"
+              value={intent}
+              onChange={(e) => setIntent(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleGetInsights()}
+              placeholder="e.g., I want to predict house prices based on features..."
+              className="explore-insights-input"
+            />
+            <Button
+              onClick={handleGetInsights}
+              isLoading={isAnalyzing}
+              disabled={!intent.trim() || isAnalyzing}
+            >
+              Analyze
+            </Button>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 };

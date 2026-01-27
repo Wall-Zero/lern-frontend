@@ -13,6 +13,9 @@ export const MarketplacePanel = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dateColumn, setDateColumn] = useState('');
   const [isMerging, setIsMerging] = useState(false);
+  const [isSearchBtnHovered, setIsSearchBtnHovered] = useState(false);
+  const [isMergeBtnHovered, setIsMergeBtnHovered] = useState(false);
+  const [hoveredSeriesId, setHoveredSeriesId] = useState<string | null>(null);
 
   const handleSearch = async () => {
     if (!search.trim()) return;
@@ -66,6 +69,20 @@ export const MarketplacePanel = () => {
           transition={{ duration: 0.25, ease: 'easeInOut' }}
           className="bg-white border-l border-gray-200 h-full overflow-hidden flex flex-col"
         >
+          {/* Scoped styles for focus rings and hover states */}
+          <style>{`
+            .mp-search-input:focus {
+              outline: none;
+              box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+              border-color: #0d9488;
+            }
+            .mp-select:focus {
+              outline: none;
+              box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+              border-color: #0d9488;
+            }
+          `}</style>
+
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">
               FRED Marketplace
@@ -86,12 +103,19 @@ export const MarketplacePanel = () => {
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Search FRED series..."
-                className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="mp-search-input flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg"
               />
               <button
                 onClick={handleSearch}
                 disabled={isSearching}
-                className="px-3 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                onMouseEnter={() => setIsSearchBtnHovered(true)}
+                onMouseLeave={() => setIsSearchBtnHovered(false)}
+                className="px-3 py-2 text-white text-sm rounded-lg disabled:opacity-50 transition-colors"
+                style={{
+                  background: isSearchBtnHovered
+                    ? '#0f766e'
+                    : 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                }}
               >
                 {isSearching ? <Spinner /> : 'Search'}
               </button>
@@ -102,17 +126,23 @@ export const MarketplacePanel = () => {
           <div className="flex-1 overflow-y-auto px-4 space-y-2">
             {results.map((series) => {
               const isSelected = selected.has(series.id);
+              const isHovered = hoveredSeriesId === series.id;
               return (
                 <motion.div
                   key={series.id}
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                  className="p-3 rounded-lg border cursor-pointer transition-colors"
+                  style={
                     isSelected
-                      ? 'border-primary-300 bg-primary-50'
-                      : 'border-gray-200 hover:border-primary-200 hover:bg-gray-50'
-                  }`}
+                      ? { borderColor: '#0d9488', background: '#f0fdfa' }
+                      : isHovered
+                        ? { borderColor: '#99f6e4', background: '#f9fafb' }
+                        : { borderColor: '#e5e7eb' }
+                  }
                   onClick={() => toggleSelect(series.id)}
+                  onMouseEnter={() => setHoveredSeriesId(series.id)}
+                  onMouseLeave={() => setHoveredSeriesId(null)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
@@ -124,7 +154,7 @@ export const MarketplacePanel = () => {
                       </div>
                     </div>
                     {isSelected && (
-                      <svg className="w-5 h-5 text-primary-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <svg className="w-5 h-5 flex-shrink-0" style={{ color: '#0d9488' }} fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                     )}
@@ -149,7 +179,7 @@ export const MarketplacePanel = () => {
                 <select
                   value={dateColumn}
                   onChange={(e) => setDateColumn(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  className="mp-select w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                 >
                   <option value="">Select date column</option>
                   {state.previewColumns.map((col) => (
@@ -160,7 +190,14 @@ export const MarketplacePanel = () => {
               <button
                 onClick={handleMerge}
                 disabled={!dateColumn || isMerging}
-                className="w-full px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                onMouseEnter={() => setIsMergeBtnHovered(true)}
+                onMouseLeave={() => setIsMergeBtnHovered(false)}
+                className="w-full px-4 py-2 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+                style={{
+                  background: isMergeBtnHovered
+                    ? '#0f766e'
+                    : 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                }}
               >
                 {isMerging ? 'Merging...' : `Merge ${selected.size} series`}
               </button>

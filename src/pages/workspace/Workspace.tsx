@@ -7,9 +7,23 @@ import { MarketplacePanel } from '../../components/workspace/MarketplacePanel';
 export const Workspace = () => {
   return (
     <WorkspaceProvider>
-      <div className="flex h-screen bg-gray-50">
+      <div
+        style={{
+          display: 'flex',
+          height: '100vh',
+          background: '#f9fafb',
+          fontFamily: "'Outfit', sans-serif",
+        }}
+      >
         <DatasetSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: 0,
+          }}
+        >
           <StageHeader />
           <WorkspaceContent />
         </div>

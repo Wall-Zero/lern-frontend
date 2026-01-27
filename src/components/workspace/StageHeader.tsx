@@ -15,72 +15,156 @@ export const StageHeader = () => {
   const currentIndex = stages.findIndex((s) => s.key === state.stage);
 
   const canNavigateTo = (index: number): boolean => {
-    // Can always go back to upload
     if (index === 0) return true;
-    // Can go to explore if we have a dataset
     if (index === 1) return !!state.activeDataset;
-    // Can go to insights if we have a tool
     if (index === 2) return !!state.activeTool;
-    // Can go to train if tool has analysis
     if (index === 3) return !!state.activeTool?.analysis;
-    // Can go to predict if tool is trained
     if (index === 4) return state.activeTool?.status === 'trained';
     return false;
   };
 
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between max-w-3xl mx-auto">
-        {stages.map((stage, index) => {
-          const isActive = stage.key === state.stage;
-          const isCompleted = index < currentIndex;
-          const isClickable = canNavigateTo(index);
+    <>
+      <style>{`
+        .stage-header {
+          background: #fff;
+          border-bottom: 1px solid #e5e7eb;
+          padding: 16px 24px;
+          font-family: 'Outfit', sans-serif;
+        }
+        .stage-header-inner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          max-width: 48rem;
+          margin: 0 auto;
+        }
+        .stage-item {
+          display: flex;
+          align-items: center;
+        }
+        .stage-connector {
+          width: 48px;
+          height: 2px;
+          margin: 0 4px;
+          transition: background-color 0.2s ease;
+        }
+        .stage-connector--active {
+          background: #0d9488;
+        }
+        .stage-connector--inactive {
+          background: #e5e7eb;
+        }
+        .stage-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          border-radius: 8px;
+          border: none;
+          background: transparent;
+          font-family: 'Outfit', sans-serif;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s ease;
+          cursor: default;
+        }
+        .stage-btn--active {
+          background: rgba(13, 148, 136, 0.08);
+          color: #0f766e;
+        }
+        .stage-btn--completed {
+          color: #0d9488;
+          cursor: pointer;
+        }
+        .stage-btn--completed:hover {
+          background: rgba(13, 148, 136, 0.08);
+        }
+        .stage-btn--clickable {
+          color: #6b7280;
+          cursor: pointer;
+        }
+        .stage-btn--clickable:hover {
+          background: #f9fafb;
+        }
+        .stage-btn--disabled {
+          color: #d1d5db;
+          cursor: not-allowed;
+        }
+        .stage-icon {
+          width: 20px;
+          height: 20px;
+        }
+        .stage-icon--completed {
+          color: #0d9488;
+        }
+        .stage-label {
+          display: none;
+        }
+        @media (min-width: 640px) {
+          .stage-label {
+            display: inline;
+          }
+        }
+      `}</style>
+      <div className="stage-header">
+        <div className="stage-header-inner">
+          {stages.map((stage, index) => {
+            const isActive = stage.key === state.stage;
+            const isCompleted = index < currentIndex;
+            const isClickable = canNavigateTo(index);
 
-          return (
-            <div key={stage.key} className="flex items-center">
-              {index > 0 && (
-                <div
-                  className={`w-12 h-0.5 mx-1 transition-colors ${
-                    index <= currentIndex ? 'bg-primary-500' : 'bg-gray-200'
-                  }`}
-                />
-              )}
-              <button
-                onClick={() => isClickable && setStage(stage.key)}
-                disabled={!isClickable}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
-                  isActive
-                    ? 'bg-primary-50 text-primary-700'
-                    : isCompleted
-                    ? 'text-primary-600 hover:bg-primary-50 cursor-pointer'
-                    : isClickable
-                    ? 'text-gray-500 hover:bg-gray-50 cursor-pointer'
-                    : 'text-gray-300 cursor-not-allowed'
-                }`}
-              >
-                <div className="relative">
-                  {isCompleted ? (
-                    <motion.svg
-                      initial={{ scale: 0.5 }}
-                      animate={{ scale: 1 }}
-                      className="w-5 h-5 text-primary-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </motion.svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stage.icon} />
-                    </svg>
-                  )}
-                </div>
-                <span className="text-sm font-medium hidden sm:inline">{stage.label}</span>
-              </button>
-            </div>
-          );
-        })}
+            const btnClass = [
+              'stage-btn',
+              isActive
+                ? 'stage-btn--active'
+                : isCompleted
+                ? 'stage-btn--completed'
+                : isClickable
+                ? 'stage-btn--clickable'
+                : 'stage-btn--disabled',
+            ].join(' ');
+
+            return (
+              <div key={stage.key} className="stage-item">
+                {index > 0 && (
+                  <div
+                    className={`stage-connector ${
+                      index <= currentIndex
+                        ? 'stage-connector--active'
+                        : 'stage-connector--inactive'
+                    }`}
+                  />
+                )}
+                <button
+                  onClick={() => isClickable && setStage(stage.key)}
+                  disabled={!isClickable}
+                  className={btnClass}
+                >
+                  <div style={{ position: 'relative' }}>
+                    {isCompleted ? (
+                      <motion.svg
+                        initial={{ scale: 0.5 }}
+                        animate={{ scale: 1 }}
+                        className="stage-icon stage-icon--completed"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </motion.svg>
+                    ) : (
+                      <svg className="stage-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stage.icon} />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="stage-label">{stage.label}</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
