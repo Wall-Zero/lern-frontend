@@ -8,7 +8,7 @@ export const DatasetSidebar = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadBtnHovered, setIsUploadBtnHovered] = useState(false);
-  const [hoveredDatasetId, setHoveredDatasetId] = useState<string | null>(null);
+  const [hoveredDatasetId, setHoveredDatasetId] = useState<number | null>(null);
   const [isDropzoneHovered, setIsDropzoneHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
