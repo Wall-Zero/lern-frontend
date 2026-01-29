@@ -3,10 +3,11 @@ import { motion } from 'framer-motion';
 import { useWorkspace } from '../../../context/WorkspaceContext';
 import { Button } from '../../common/Button';
 import { OverviewTab, DataTableTab, AIAssistantTab, EnrichTab, CompareTab } from './explore';
+import { DocumentAnalysisTab } from './explore/DocumentAnalysisTab';
 
-type TabId = 'overview' | 'data' | 'ai' | 'enrich' | 'compare';
+type TabId = 'overview' | 'data' | 'ai' | 'enrich' | 'compare' | 'document';
 
-const TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
+const DATA_TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'data', label: 'Data' },
   { id: 'ai', label: 'AI Assistant' },
@@ -14,11 +15,20 @@ const TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
   { id: 'compare', label: 'Compare', compareOnly: true },
 ];
 
+const DOCUMENT_TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
+  { id: 'document', label: 'Analysis' },
+  { id: 'compare', label: 'Compare', compareOnly: true },
+];
+
+const DOCUMENT_TYPES = ['pdf', 'doc', 'docx', 'txt', 'md'];
+
 export const ExplorePanel = () => {
   const { state, toggleMarketplace, runAnalysis, fetchDataInsights, fetchMultiDatasetInsights } = useWorkspace();
   const { activeDataset, previewData, previewColumns, metadata, dataInsights, compareDatasets, compareMetadata, comparePreviewData, multiDatasetInsights } = state;
   const hasCompareDatasets = compareDatasets.length > 0;
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const isDocument = activeDataset ? DOCUMENT_TYPES.includes(activeDataset.type?.toLowerCase()) : false;
+  const TABS = isDocument ? DOCUMENT_TABS : DATA_TABS;
+  const [activeTab, setActiveTab] = useState<TabId>(isDocument ? 'document' : 'overview');
   const [intent, setIntent] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -117,7 +127,11 @@ export const ExplorePanel = () => {
             margin: 0,
             fontFamily: "'JetBrains Mono', monospace"
           }}>
-            {activeDataset.row_count} rows &middot; {previewColumns.length} columns &middot; {activeDataset.type.toUpperCase()}
+            {isDocument ? (
+              <>📄 {activeDataset.type.toUpperCase()} Document</>
+            ) : (
+              <>{activeDataset.row_count} rows &middot; {previewColumns.length} columns &middot; {activeDataset.type.toUpperCase()}</>
+            )}
           </p>
         </div>
       </div>
@@ -143,7 +157,17 @@ export const ExplorePanel = () => {
 
       {/* Tab content */}
       <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
-        {activeTab === 'overview' && (
+        {activeTab === 'document' && isDocument && (
+          <DocumentAnalysisTab
+            analysis={dataInsights?.analyses as any}
+            documentName={activeDataset.name}
+            documentType={activeDataset.type}
+            onRunAnalysis={handleRunAIAnalysis}
+            isProcessing={state.isProcessing}
+          />
+        )}
+
+        {activeTab === 'overview' && !isDocument && (
           <OverviewTab
             dataset={activeDataset}
             metadata={metadata}
@@ -195,50 +219,52 @@ export const ExplorePanel = () => {
         )}
       </div>
 
-      {/* AI Insights prompt - always at bottom */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        style={{
-          background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
-          border: '1px solid #99f6e4',
-          borderRadius: '12px',
-          padding: '24px',
-          flexShrink: 0,
-        }}
-      >
-        <h3 style={{
-          fontSize: '18px',
-          fontWeight: 600,
-          color: '#111827',
-          margin: '0 0 8px 0'
-        }}>Get AI Insights</h3>
-        <p style={{
-          fontSize: '14px',
-          color: '#6b7280',
-          margin: '0 0 16px 0',
-          lineHeight: 1.5
-        }}>
-          Describe what you want to predict or analyze, and AI will suggest the best approach.
-        </p>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <input
-            type="text"
-            value={intent}
-            onChange={(e) => setIntent(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleGetInsights()}
-            placeholder="e.g., I want to predict house prices based on features..."
-            className="explore-insights-input"
-          />
-          <Button
-            onClick={handleGetInsights}
-            isLoading={isAnalyzing}
-            disabled={!intent.trim() || isAnalyzing}
-          >
-            Analyze
-          </Button>
-        </div>
-      </motion.div>
+      {/* AI Insights prompt - only for data files */}
+      {!isDocument && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
+            border: '1px solid #99f6e4',
+            borderRadius: '12px',
+            padding: '24px',
+            flexShrink: 0,
+          }}
+        >
+          <h3 style={{
+            fontSize: '18px',
+            fontWeight: 600,
+            color: '#111827',
+            margin: '0 0 8px 0'
+          }}>Get AI Insights</h3>
+          <p style={{
+            fontSize: '14px',
+            color: '#6b7280',
+            margin: '0 0 16px 0',
+            lineHeight: 1.5
+          }}>
+            Describe what you want to predict or analyze, and AI will suggest the best approach.
+          </p>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <input
+              type="text"
+              value={intent}
+              onChange={(e) => setIntent(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleGetInsights()}
+              placeholder="e.g., I want to predict house prices based on features..."
+              className="explore-insights-input"
+            />
+            <Button
+              onClick={handleGetInsights}
+              isLoading={isAnalyzing}
+              disabled={!intent.trim() || isAnalyzing}
+            >
+              Analyze
+            </Button>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };
