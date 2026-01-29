@@ -5,12 +5,13 @@ import { Button } from '../../common/Button';
 import { Input } from '../../common/Input';
 
 export const UploadPanel = () => {
-  const { uploadDataset } = useWorkspace();
+  const { uploadDataset, selectDataset } = useWorkspace();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isDragOverDataset, setIsDragOverDataset] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (file: File) => {
@@ -22,7 +23,18 @@ export const UploadPanel = () => {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
+    setIsDragOverDataset(false);
+
+    // Check if it's an existing dataset being dragged from sidebar
+    const datasetId = e.dataTransfer.getData('application/x-dataset-id');
+    if (datasetId) {
+      selectDataset(Number(datasetId));
+      return;
+    }
+
+    // Otherwise handle as file drop
     const file = e.dataTransfer.files[0];
     if (file) handleFileSelect(file);
   };
@@ -125,8 +137,14 @@ export const UploadPanel = () => {
           {/* Drag and drop zone */}
           <div
             onDrop={handleDrop}
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const hasDataset = e.dataTransfer.types.includes('application/x-dataset-id');
+              setIsDragOverDataset(hasDataset);
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => { setIsDragOver(false); setIsDragOverDataset(false); }}
             onClick={() => fileInputRef.current?.click()}
             className={`upload-dropzone${isDragOver ? ' drag-over' : ''}${selectedFile ? ' has-file' : ''}`}
           >
@@ -166,6 +184,25 @@ export const UploadPanel = () => {
                   Change file
                 </button>
               </motion.div>
+            ) : isDragOverDataset ? (
+              <div>
+                <svg style={{ margin: '0 auto 12px', display: 'block' }} height="48" width="48" fill="none" stroke="#0d9488" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#0d9488',
+                  margin: '0 0 4px 0',
+                  fontWeight: 600,
+                  fontFamily: "'Outfit', sans-serif"
+                }}>Drop to select dataset</p>
+                <p style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  margin: 0,
+                  fontFamily: "'Outfit', sans-serif"
+                }}>Release to open and explore this dataset</p>
+              </div>
             ) : (
               <div>
                 <svg style={{ margin: '0 auto 12px', display: 'block' }} height="48" width="48" fill="none" stroke="#9ca3af" viewBox="0 0 24 24">
@@ -182,7 +219,7 @@ export const UploadPanel = () => {
                   color: '#9ca3af',
                   margin: 0,
                   fontFamily: "'Outfit', sans-serif"
-                }}>or click to browse. CSV, XLSX, XLS, JSON supported</p>
+                }}>or drag a dataset from the sidebar, or click to browse</p>
               </div>
             )}
           </div>
