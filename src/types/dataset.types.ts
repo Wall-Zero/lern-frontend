@@ -119,3 +119,66 @@ export interface DataInsightsRequest {
   intent?: string;
   providers?: string[];
 }
+
+// Multi-Dataset Analysis Types
+export interface MultiDatasetInsightsRequest {
+  data_source_ids: number[];
+  intent?: string;
+  providers?: string[];
+}
+
+export interface CrossDatasetCorrelation {
+  dataset_a_id: number;
+  dataset_a_column: string;
+  dataset_b_id: number;
+  dataset_b_column: string;
+  relationship: string;
+  confidence: number;
+}
+
+export interface SchemaCompatibility {
+  can_merge: boolean;
+  suggested_join_keys: string[];
+  type_conflicts: { column: string; types: string[] }[];
+}
+
+export interface MergeRecommendation {
+  strategy: 'inner' | 'left' | 'right' | 'outer';
+  reasoning: string;
+}
+
+export interface EnrichmentOpportunity {
+  source_dataset_id: number;
+  target_dataset_id: number;
+  description: string;
+  columns_to_add: string[];
+  join_on: string | null;
+}
+
+export interface DataQualityComparison {
+  better_quality_dataset: number | null;
+  quality_notes: string;
+}
+
+export interface CrossDatasetAnalysis {
+  datasets_useful_together: boolean;
+  usefulness_explanation: string;
+  correlations: CrossDatasetCorrelation[];
+  enrichment_opportunities: EnrichmentOpportunity[];
+  schema_compatibility: SchemaCompatibility;
+  merge_recommendations: MergeRecommendation;
+  combined_insights: string[];
+  data_quality_comparison: DataQualityComparison;
+}
+
+export interface MultiDatasetInsightsResponse {
+  data_sources: { id: number; name: string; row_count: number; column_count: number }[];
+  intent: string;
+  analyses: {
+    [dataSourceId: number]: {
+      claude?: ProviderAnalysisResult;
+      gemini?: ProviderAnalysisResult;
+    };
+  };
+  cross_dataset_analysis: CrossDatasetAnalysis;
+}

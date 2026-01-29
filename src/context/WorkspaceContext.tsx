@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { Stage, WorkspaceState, WorkspaceContextType, QuickTrainConfig, MergeFredConfig } from '../types/workspace.types';
+import type { Stage, WorkspaceState, WorkspaceContextType, QuickTrainConfig, MergeFredConfig, DatasetMetadata } from '../types/workspace.types';
+import type { DataInsightsResponse, MultiDatasetInsightsResponse } from '../types/dataset.types';
 import { datasetsApi } from '../api/endpoints/datasets';
 import { workspaceApi } from '../api/endpoints/workspace';
 import toast from 'react-hot-toast';
@@ -14,6 +15,13 @@ const initialState: WorkspaceState = {
   datasets: [],
   previewData: null,
   previewColumns: [],
+  metadata: null,
+  dataInsights: null,
+  // Multi-dataset comparison state
+  compareDatasets: [],
+  compareMetadata: {},
+  comparePreviewData: {},
+  multiDatasetInsights: null,
 };
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
@@ -37,13 +45,22 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
   const selectDataset = useCallback(async (id: number) => {
     try {
       setState((prev) => ({ ...prev, isProcessing: true }));
-      const dataset = await datasetsApi.get(id);
-      const preview = await workspaceApi.getPreview(id, 50);
+      const [dataset, preview, metadataRes] = await Promise.all([
+        datasetsApi.get(id),
+        workspaceApi.getPreview(id, 50),
+        workspaceApi.getMetadata(id).catch((err) => {
+          console.warn('Metadata fetch failed (non-critical):', err);
+          return null;
+        }),
+      ]);
+      const metadata: DatasetMetadata | null = metadataRes?.metadata ?? null;
       setState((prev) => ({
         ...prev,
         activeDataset: dataset,
         previewData: preview.data,
         previewColumns: preview.columns,
+        metadata,
+        dataInsights: null,
         stage: 'explore',
         isProcessing: false,
       }));
@@ -112,6 +129,28 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [state.activeTool]);
 
+  const fetchDataInsights = useCallback(async (intent?: string, providers?: string[]) => {
+    if (!state.activeDataset) return;
+    try {
+      setState((prev) => ({ ...prev, isProcessing: true }));
+      const result: DataInsightsResponse = await workspaceApi.dataInsights({
+        data_source_id: state.activeDataset.id,
+        intent,
+        providers: providers || ['claude', 'gemini'],
+      });
+      setState((prev) => ({
+        ...prev,
+        dataInsights: result,
+        isProcessing: false,
+      }));
+      toast.success('Data insights generated');
+    } catch (err) {
+      console.error('Data insights failed:', err);
+      toast.error('Failed to generate data insights');
+      setState((prev) => ({ ...prev, isProcessing: false }));
+    }
+  }, [state.activeDataset]);
+
   const mergeFred = useCallback(async (config: MergeFredConfig) => {
     if (!state.activeDataset) return;
     try {
@@ -150,6 +189,96 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     setState((prev) => ({ ...prev, isProcessing: v }));
   }, []);
 
+  const toggleCompareDataset = useCallback(async (id: number) => {
+    const currentCompare = state.compareDatasets;
+    const isAlreadyInCompare = currentCompare.some((ds) => ds.id === id);
+
+    if (isAlreadyInCompare) {
+      // Remove from comparison
+      setState((prev) => {
+        const newCompareDatasets = prev.compareDatasets.filter((ds) => ds.id !== id);
+        const newCompareMetadata = { ...prev.compareMetadata };
+        const newComparePreviewData = { ...prev.comparePreviewData };
+        delete newCompareMetadata[id];
+        delete newComparePreviewData[id];
+        return {
+          ...prev,
+          compareDatasets: newCompareDatasets,
+          compareMetadata: newCompareMetadata,
+          comparePreviewData: newComparePreviewData,
+          multiDatasetInsights: null, // Clear insights when selection changes
+        };
+      });
+    } else {
+      // Add to comparison - fetch metadata and preview
+      try {
+        const dataset = state.datasets.find((ds) => ds.id === id);
+        if (!dataset) return;
+
+        setState((prev) => ({ ...prev, isProcessing: true }));
+
+        const [preview, metadataRes] = await Promise.all([
+          workspaceApi.getPreview(id, 50),
+          workspaceApi.getMetadata(id).catch((err) => {
+            console.warn('Metadata fetch failed (non-critical):', err);
+            return null;
+          }),
+        ]);
+
+        const metadata: DatasetMetadata | null = metadataRes?.metadata ?? null;
+
+        setState((prev) => ({
+          ...prev,
+          compareDatasets: [...prev.compareDatasets, dataset],
+          compareMetadata: metadata ? { ...prev.compareMetadata, [id]: metadata } : prev.compareMetadata,
+          comparePreviewData: { ...prev.comparePreviewData, [id]: preview.data },
+          multiDatasetInsights: null, // Clear insights when selection changes
+          isProcessing: false,
+        }));
+      } catch (err) {
+        console.error('Failed to load dataset for comparison:', err);
+        toast.error('Failed to add dataset to comparison');
+        setState((prev) => ({ ...prev, isProcessing: false }));
+      }
+    }
+  }, [state.compareDatasets, state.datasets]);
+
+  const clearCompareDatasets = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      compareDatasets: [],
+      compareMetadata: {},
+      comparePreviewData: {},
+      multiDatasetInsights: null,
+    }));
+  }, []);
+
+  const fetchMultiDatasetInsights = useCallback(async (intent?: string, providers?: string[]) => {
+    if (state.compareDatasets.length < 2) {
+      toast.error('Select at least 2 datasets to compare');
+      return;
+    }
+    try {
+      setState((prev) => ({ ...prev, isProcessing: true }));
+      const dataSourceIds = state.compareDatasets.map((ds) => ds.id);
+      const result: MultiDatasetInsightsResponse = await workspaceApi.dataInsights({
+        data_source_ids: dataSourceIds,
+        intent,
+        providers: providers || ['claude', 'gemini'],
+      });
+      setState((prev) => ({
+        ...prev,
+        multiDatasetInsights: result,
+        isProcessing: false,
+      }));
+      toast.success('Multi-dataset insights generated');
+    } catch (err) {
+      console.error('Multi-dataset insights failed:', err);
+      toast.error('Failed to generate multi-dataset insights');
+      setState((prev) => ({ ...prev, isProcessing: false }));
+    }
+  }, [state.compareDatasets]);
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -159,10 +288,14 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         runAnalysis,
         quickTrain,
         mergeFred,
+        fetchDataInsights,
         setStage,
         toggleMarketplace,
         refreshDatasets,
         setIsProcessing,
+        toggleCompareDataset,
+        clearCompareDatasets,
+        fetchMultiDatasetInsights,
       }}
     >
       {children}

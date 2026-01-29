@@ -1,7 +1,39 @@
-import type { Dataset } from './dataset.types';
+import type { Dataset, DataInsightsResponse, MultiDatasetInsightsResponse } from './dataset.types';
 import type { AITool } from './aitools.types';
 
 export type Stage = 'upload' | 'explore' | 'insights' | 'train' | 'predict';
+
+export interface ColumnMetadata {
+  name: string;
+  type: 'numeric' | 'datetime' | 'categorical';
+  non_null: number;
+  null_count: number;
+  unique_values: number;
+  stats: {
+    min?: number | string | null;
+    max?: number | string | null;
+    mean?: number | null;
+    std?: number | null;
+    unique_count?: number;
+    most_common?: string | null;
+  };
+}
+
+export interface DatasetMetadata {
+  row_count: number;
+  column_count: number;
+  columns: ColumnMetadata[];
+  memory_usage_mb: number;
+  sample_size: number;
+}
+
+export interface CompareMetadata {
+  [datasetId: number]: DatasetMetadata;
+}
+
+export interface ComparePreviewData {
+  [datasetId: number]: Record<string, any>[];
+}
 
 export interface WorkspaceState {
   stage: Stage;
@@ -12,6 +44,13 @@ export interface WorkspaceState {
   datasets: Dataset[];
   previewData: Record<string, any>[] | null;
   previewColumns: string[];
+  metadata: DatasetMetadata | null;
+  dataInsights: DataInsightsResponse | null;
+  // Multi-dataset comparison state
+  compareDatasets: Dataset[];
+  compareMetadata: CompareMetadata;
+  comparePreviewData: ComparePreviewData;
+  multiDatasetInsights: MultiDatasetInsightsResponse | null;
 }
 
 export interface QuickTrainConfig {
@@ -55,8 +94,13 @@ export interface WorkspaceContextType {
   runAnalysis: (intent: string, aiModel?: string) => Promise<void>;
   quickTrain: (config: QuickTrainConfig) => Promise<void>;
   mergeFred: (config: MergeFredConfig) => Promise<void>;
+  fetchDataInsights: (intent?: string, providers?: string[]) => Promise<void>;
   setStage: (stage: Stage) => void;
   toggleMarketplace: () => void;
   refreshDatasets: () => Promise<void>;
   setIsProcessing: (v: boolean) => void;
+  // Multi-dataset comparison
+  toggleCompareDataset: (id: number) => Promise<void>;
+  clearCompareDatasets: () => void;
+  fetchMultiDatasetInsights: (intent?: string, providers?: string[]) => Promise<void>;
 }

@@ -27,7 +27,7 @@ export const workspaceApi = {
     return response.data;
   },
 
-  dataInsights: async (data: { data_source_id: number; intent?: string; providers?: string[] }) => {
+  dataInsights: async (data: { data_source_id?: number; data_source_ids?: number[]; intent?: string; providers?: string[] }) => {
     const response = await apiClient.post('/ai-tools/data_insights/', data);
     return response.data;
   },

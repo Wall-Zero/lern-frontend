@@ -2,10 +2,23 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useWorkspace } from '../../../context/WorkspaceContext';
 import { Button } from '../../common/Button';
+import { OverviewTab, DataTableTab, AIAssistantTab, EnrichTab, CompareTab } from './explore';
+
+type TabId = 'overview' | 'data' | 'ai' | 'enrich' | 'compare';
+
+const TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'data', label: 'Data' },
+  { id: 'ai', label: 'AI Assistant' },
+  { id: 'enrich', label: 'Enrich' },
+  { id: 'compare', label: 'Compare', compareOnly: true },
+];
 
 export const ExplorePanel = () => {
-  const { state, toggleMarketplace, runAnalysis } = useWorkspace();
-  const { activeDataset, previewData, previewColumns } = state;
+  const { state, toggleMarketplace, runAnalysis, fetchDataInsights, fetchMultiDatasetInsights } = useWorkspace();
+  const { activeDataset, previewData, previewColumns, metadata, dataInsights, compareDatasets, compareMetadata, comparePreviewData, multiDatasetInsights } = state;
+  const hasCompareDatasets = compareDatasets.length > 0;
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [intent, setIntent] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -39,100 +52,37 @@ export const ExplorePanel = () => {
     }
   };
 
+  const handleRunAIAnalysis = async () => {
+    await fetchDataInsights();
+  };
+
   return (
-    <div style={{ padding: '24px', fontFamily: "'Outfit', sans-serif" }}>
+    <div style={{ padding: '24px', fontFamily: "'Outfit', sans-serif", display: 'flex', flexDirection: 'column', height: '100%' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-        .explore-panel { font-family: 'Outfit', sans-serif; }
-
-        /* Secondary button */
-        .explore-external-btn {
-          padding: 8px 16px;
+        .explore-tab-btn {
+          padding: 8px 20px;
           font-size: 14px;
           font-weight: 500;
-          color: #374151;
-          background: #fff;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
+          color: #6b7280;
+          background: none;
+          border: none;
+          border-bottom: 2px solid transparent;
           cursor: pointer;
-          transition: all 0.15s;
-          font-family: 'Outfit', sans-serif;
-        }
-        .explore-external-btn:hover {
-          background: #f9fafb;
-          border-color: #d1d5db;
-        }
-
-        /* Column tags */
-        .explore-column-tag {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 4px 12px;
-          border-radius: 20px;
-          font-size: 12px;
-          font-weight: 500;
-          background: #f3f4f6;
-          color: #374151;
           font-family: 'Outfit', sans-serif;
           transition: all 0.15s;
+          white-space: nowrap;
         }
-        .explore-column-tag:hover {
-          background: #f0fdfa;
+        .explore-tab-btn:hover {
+          color: #111827;
+        }
+        .explore-tab-btn.active {
           color: #0d9488;
-        }
-        .explore-column-type {
-          color: #9ca3af;
-        }
-
-        /* Data table - matches preview-data-table from DatasetsList */
-        .explore-data-table {
-          width: 100%;
-          overflow-x: auto;
-        }
-        .explore-data-table table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 13px;
-        }
-        .explore-data-table th {
-          text-align: left;
-          padding: 10px 12px;
-          background: #f3f4f6;
-          font-size: 12px;
+          border-bottom-color: #0d9488;
           font-weight: 600;
-          color: #4b5563;
-          font-family: 'JetBrains Mono', monospace;
-          border-bottom: 1px solid #e5e7eb;
-          white-space: nowrap;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-        .explore-data-table td {
-          padding: 10px 12px;
-          border-bottom: 1px solid #f3f4f6;
-          font-family: 'JetBrains Mono', monospace;
-          color: #374151;
-          max-width: 200px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .explore-data-table td.row-num {
-          color: #9ca3af;
-          font-size: 12px;
-          width: 48px;
-        }
-        .explore-data-table tr:hover td {
-          background: #f9fafb;
-        }
-        .explore-data-table .null-value {
-          color: #d1d5db;
-          font-style: italic;
         }
 
-        /* AI Insights input */
         .explore-insights-input {
           flex: 1;
           padding: 12px 16px;
@@ -152,154 +102,143 @@ export const ExplorePanel = () => {
         }
       `}</style>
 
-      <div className="explore-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{
-              fontSize: '20px',
-              fontWeight: 700,
-              color: '#111827',
-              margin: '0 0 4px 0'
-            }}>{activeDataset.name}</h1>
-            <p style={{
-              fontSize: '13px',
-              color: '#6b7280',
-              margin: 0,
-              fontFamily: "'JetBrains Mono', monospace"
-            }}>
-              {activeDataset.row_count} rows &middot; {previewColumns.length} columns &middot; {activeDataset.type.toUpperCase()}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={toggleMarketplace}
-              className="explore-external-btn"
-            >
-              + External Data
-            </button>
-          </div>
-        </div>
-
-        {/* Column summary */}
-        <div style={{
-          background: '#fff',
-          borderRadius: '12px',
-          border: '1px solid #e5e7eb',
-          padding: '16px'
-        }}>
-          <h3 style={{
-            fontSize: '13px',
-            fontWeight: 600,
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
+        <div>
+          <h1 style={{
+            fontSize: '20px',
+            fontWeight: 700,
             color: '#111827',
-            margin: '0 0 12px 0'
-          }}>Columns</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {activeDataset.columns.map((col) => (
-              <span
-                key={col.name}
-                className="explore-column-tag"
-              >
-                {col.name}
-                <span className="explore-column-type">({col.type})</span>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Data table */}
-        {previewData && previewData.length > 0 && (
-          <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            border: '1px solid #e5e7eb',
-            overflow: 'hidden'
+            margin: '0 0 4px 0'
+          }}>{activeDataset.name}</h1>
+          <p style={{
+            fontSize: '13px',
+            color: '#6b7280',
+            margin: 0,
+            fontFamily: "'JetBrains Mono', monospace"
           }}>
-            <div className="explore-data-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th style={{ width: '48px' }}>#</th>
-                    {previewColumns.map((col) => (
-                      <th key={col}>
-                        {col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewData.slice(0, 20).map((row, i) => (
-                    <tr key={i}>
-                      <td className="row-num">{i + 1}</td>
-                      {previewColumns.map((col) => (
-                        <td key={col}>
-                          {row[col] != null ? String(row[col]) : <span className="null-value">null</span>}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {previewData.length > 20 && (
-              <div style={{
-                padding: '8px 16px',
-                background: '#f9fafb',
-                fontSize: '12px',
-                color: '#6b7280',
-                borderTop: '1px solid #e5e7eb',
-                fontFamily: "'JetBrains Mono', monospace"
-              }}>
-                Showing 20 of {previewData.length} preview rows ({activeDataset.row_count} total)
-              </div>
+            {activeDataset.row_count} rows &middot; {previewColumns.length} columns &middot; {activeDataset.type.toUpperCase()}
+          </p>
+        </div>
+      </div>
+
+      {/* Tab bar */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px', flexShrink: 0 }}>
+        {TABS.filter((tab) => !tab.compareOnly || hasCompareDatasets).map((tab) => (
+          <button
+            key={tab.id}
+            className={`explore-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+            style={tab.id === 'compare' ? { color: activeTab === 'compare' ? '#d97706' : '#6b7280', borderBottomColor: activeTab === 'compare' ? '#d97706' : 'transparent' } : undefined}
+          >
+            {tab.label}
+            {tab.id === 'compare' && hasCompareDatasets && (
+              <span style={{ marginLeft: '6px', padding: '2px 6px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, background: '#fef3c7', color: '#d97706' }}>
+                {compareDatasets.length}
+              </span>
             )}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
+        {activeTab === 'overview' && (
+          <OverviewTab
+            dataset={activeDataset}
+            metadata={metadata}
+            dataInsights={dataInsights}
+            onRunAnalysis={handleRunAIAnalysis}
+            isProcessing={state.isProcessing}
+          />
+        )}
+
+        {activeTab === 'data' && previewData && previewData.length > 0 && (
+          <DataTableTab
+            previewData={previewData}
+            previewColumns={previewColumns}
+            metadata={metadata}
+            totalRows={activeDataset.row_count}
+          />
+        )}
+
+        {activeTab === 'data' && (!previewData || previewData.length === 0) && (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', fontSize: '14px' }}>
+            No preview data available.
           </div>
         )}
 
-        {/* AI Insights prompt */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          style={{
-            background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
-            border: '1px solid #99f6e4',
-            borderRadius: '12px',
-            padding: '24px'
-          }}
-        >
-          <h3 style={{
-            fontSize: '18px',
-            fontWeight: 600,
-            color: '#111827',
-            margin: '0 0 8px 0'
-          }}>Get AI Insights</h3>
-          <p style={{
-            fontSize: '14px',
-            color: '#6b7280',
-            margin: '0 0 16px 0',
-            lineHeight: 1.5
-          }}>
-            Describe what you want to predict or analyze, and AI will suggest the best approach.
-          </p>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <input
-              type="text"
-              value={intent}
-              onChange={(e) => setIntent(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleGetInsights()}
-              placeholder="e.g., I want to predict house prices based on features..."
-              className="explore-insights-input"
-            />
-            <Button
-              onClick={handleGetInsights}
-              isLoading={isAnalyzing}
-              disabled={!intent.trim() || isAnalyzing}
-            >
-              Analyze
-            </Button>
-          </div>
-        </motion.div>
+        {activeTab === 'ai' && (
+          <AIAssistantTab
+            dataInsights={dataInsights}
+            onFetchInsights={fetchDataInsights}
+            isProcessing={state.isProcessing}
+          />
+        )}
+
+        {activeTab === 'enrich' && (
+          <EnrichTab
+            dataSourceId={activeDataset.id}
+            onOpenMarketplace={toggleMarketplace}
+          />
+        )}
+
+        {activeTab === 'compare' && (
+          <CompareTab
+            compareDatasets={compareDatasets}
+            compareMetadata={compareMetadata}
+            comparePreviewData={comparePreviewData}
+            multiDatasetInsights={multiDatasetInsights}
+            onFetchInsights={fetchMultiDatasetInsights}
+            isProcessing={state.isProcessing}
+          />
+        )}
       </div>
+
+      {/* AI Insights prompt - always at bottom */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{
+          background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
+          border: '1px solid #99f6e4',
+          borderRadius: '12px',
+          padding: '24px',
+          flexShrink: 0,
+        }}
+      >
+        <h3 style={{
+          fontSize: '18px',
+          fontWeight: 600,
+          color: '#111827',
+          margin: '0 0 8px 0'
+        }}>Get AI Insights</h3>
+        <p style={{
+          fontSize: '14px',
+          color: '#6b7280',
+          margin: '0 0 16px 0',
+          lineHeight: 1.5
+        }}>
+          Describe what you want to predict or analyze, and AI will suggest the best approach.
+        </p>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <input
+            type="text"
+            value={intent}
+            onChange={(e) => setIntent(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleGetInsights()}
+            placeholder="e.g., I want to predict house prices based on features..."
+            className="explore-insights-input"
+          />
+          <Button
+            onClick={handleGetInsights}
+            isLoading={isAnalyzing}
+            disabled={!intent.trim() || isAnalyzing}
+          >
+            Analyze
+          </Button>
+        </div>
+      </motion.div>
     </div>
   );
 };
