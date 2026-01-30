@@ -4,8 +4,9 @@ import { useWorkspace } from '../../../context/WorkspaceContext';
 import { Button } from '../../common/Button';
 import { OverviewTab, DataTableTab, AIAssistantTab, EnrichTab, CompareTab } from './explore';
 import { DocumentAnalysisTab } from './explore/DocumentAnalysisTab';
+import { MotionDrafterTab } from './explore/MotionDrafterTab';
 
-type TabId = 'overview' | 'data' | 'ai' | 'enrich' | 'compare' | 'document';
+type TabId = 'overview' | 'data' | 'ai' | 'enrich' | 'compare' | 'document' | 'motion';
 
 const DATA_TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
   { id: 'overview', label: 'Overview' },
@@ -17,6 +18,7 @@ const DATA_TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
 
 const DOCUMENT_TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
   { id: 'document', label: 'Analysis' },
+  { id: 'motion', label: 'Draft Motion' },
   { id: 'compare', label: 'Compare', compareOnly: true },
 ];
 
@@ -164,6 +166,12 @@ export const ExplorePanel = () => {
             documentType={activeDataset.type}
             onRunAnalysis={handleRunAIAnalysis}
             isProcessing={state.isProcessing}
+          />
+        )}
+
+        {activeTab === 'motion' && isDocument && (
+          <MotionDrafterTab
+            dataSourceId={activeDataset.id}
           />
         )}
 
