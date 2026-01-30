@@ -54,13 +54,26 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         }),
       ]);
       const metadata: DatasetMetadata | null = metadataRes?.metadata ?? null;
+      // Use cached analysis if available
+      const cachedInsights: DataInsightsResponse | null = dataset.analysis_cache ? {
+        data_source: {
+          id: dataset.id,
+          name: dataset.name,
+          type: dataset.type,
+          row_count: dataset.row_count,
+          column_count: dataset.columns?.length || 0,
+        },
+        intent: '',
+        analyses: dataset.analysis_cache as any,
+        comparison: { agreement: [], disagreement: [], unique_insights: {} },
+      } : null;
       setState((prev) => ({
         ...prev,
         activeDataset: dataset,
         previewData: preview.data,
         previewColumns: preview.columns,
         metadata,
-        dataInsights: null,
+        dataInsights: cachedInsights,
         stage: 'explore',
         isProcessing: false,
       }));

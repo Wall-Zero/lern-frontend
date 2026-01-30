@@ -12,6 +12,7 @@ export interface Dataset {
   created_at: string;
   updated_at: string;
   last_accessed: string | null;
+  analysis_cache?: Record<string, any> | null;
 }
 
 export interface DatasetColumn {
