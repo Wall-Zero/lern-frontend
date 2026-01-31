@@ -22,7 +22,7 @@ const DOCUMENT_TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
   { id: 'compare', label: 'Compare', compareOnly: true },
 ];
 
-const DOCUMENT_TYPES = ['pdf', 'doc', 'docx', 'txt', 'md'];
+const DOCUMENT_TYPES = ['pdf', 'doc', 'docx', 'txt', 'md', 'text'];
 
 // Keywords that indicate motion drafting intent
 const MOTION_KEYWORDS = ['motion', 'draft', 'write', 'compose', 'prepare', 'create'];
@@ -30,9 +30,14 @@ const ANALYSIS_KEYWORDS = ['analyze', 'review', 'examine', 'check', 'identify', 
 
 export const ExplorePanel = () => {
   const { state, toggleMarketplace, runAnalysis, fetchDataInsights, fetchMultiDatasetInsights } = useWorkspace();
-  const { activeDataset, previewData, previewColumns, metadata, dataInsights, compareDatasets, compareMetadata, comparePreviewData, multiDatasetInsights, userIntent } = state;
+  const { activeDataset, previewData, previewColumns, metadata, dataInsights, compareDatasets, compareMetadata, comparePreviewData, multiDatasetInsights, userIntent, datasets } = state;
   const hasCompareDatasets = compareDatasets.length > 0;
   const isDocument = activeDataset ? DOCUMENT_TYPES.includes(activeDataset.type?.toLowerCase()) : false;
+
+  // Get all available documents for reference in motion drafting (exclude current document)
+  const availableDocuments = datasets
+    .filter(ds => DOCUMENT_TYPES.includes(ds.type?.toLowerCase()) && ds.id !== activeDataset?.id)
+    .map(ds => ({ id: ds.id, name: ds.name, type: ds.type }));
   const TABS = isDocument ? DOCUMENT_TABS : DATA_TABS;
   const [activeTab, setActiveTab] = useState<TabId>(isDocument ? 'document' : 'overview');
   const [intent, setIntent] = useState('');
@@ -196,6 +201,7 @@ export const ExplorePanel = () => {
           <MotionDrafterTab
             dataSourceId={activeDataset.id}
             initialIntent={userIntent}
+            availableDocuments={availableDocuments}
           />
         )}
 

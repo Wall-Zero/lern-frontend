@@ -35,9 +35,16 @@ interface MotionResult {
   raw_motion?: string;
 }
 
+interface DocumentRef {
+  id: number;
+  name: string;
+  type: string;
+}
+
 interface MotionDrafterTabProps {
   dataSourceId?: number;
   initialIntent?: string;
+  availableDocuments?: DocumentRef[];
 }
 
 const MOTION_TYPES = [
@@ -46,7 +53,7 @@ const MOTION_TYPES = [
   { id: 'stay_of_proceedings', label: 'Stay of Proceedings', description: 'Motion to stay charges due to abuse of process' },
 ];
 
-export const MotionDrafterTab = ({ dataSourceId, initialIntent }: MotionDrafterTabProps) => {
+export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocuments = [] }: MotionDrafterTabProps) => {
   const [selectedMotion, setSelectedMotion] = useState('charter_s8');
   const [caseDetails, setCaseDetails] = useState({
     client_name: '',
@@ -60,6 +67,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent }: MotionDrafterT
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<MotionResult | null>(null);
   const [showForm, setShowForm] = useState(true);
+  const [referenceDocId, setReferenceDocId] = useState<number | null>(null);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -69,6 +77,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent }: MotionDrafterT
         case_details: caseDetails,
         case_description: caseDescription,
         data_source_id: dataSourceId,
+        reference_document_id: referenceDocId,
       });
       setResult(response.data.result);
       setShowForm(false);
@@ -541,6 +550,56 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent }: MotionDrafterT
           }}
         />
       </div>
+
+      {/* Reference Document */}
+      {availableDocuments.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: '0 0 8px 0' }}>
+            Reference Document (Optional)
+          </h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 12px 0' }}>
+            Select a document to respond to or reference (e.g., Crown's factum, disclosure materials)
+          </p>
+          <select
+            value={referenceDocId || ''}
+            onChange={(e) => setReferenceDocId(e.target.value ? Number(e.target.value) : null)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              fontSize: '14px',
+              boxSizing: 'border-box',
+              background: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="">No reference document</option>
+            {availableDocuments.map((doc) => (
+              <option key={doc.id} value={doc.id}>
+                {doc.name} ({doc.type.toUpperCase()})
+              </option>
+            ))}
+          </select>
+          {referenceDocId && (
+            <div style={{
+              marginTop: '12px',
+              padding: '10px 14px',
+              background: '#f0fdf4',
+              borderRadius: '8px',
+              border: '1px solid #bbf7d0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <span style={{ fontSize: '16px' }}>📄</span>
+              <span style={{ fontSize: '13px', color: '#166534' }}>
+                The AI will analyze and reference this document when drafting your motion
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Generate Button */}
       <button
