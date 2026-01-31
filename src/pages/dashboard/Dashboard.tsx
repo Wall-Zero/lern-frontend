@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dashboardApi } from '../../api/endpoints/dashboard';
 import { Spinner } from '../../components/common/Spinner';
+import { usePageTitle } from '../../hooks/usePageTitle';
 import type { DashboardStats } from '../../api/endpoints/dashboard';
 
 export const Dashboard = () => {
+  usePageTitle('Dashboard');
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);

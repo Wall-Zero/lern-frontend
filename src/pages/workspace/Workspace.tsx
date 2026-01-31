@@ -4,8 +4,10 @@ import { StageHeader } from '../../components/workspace/StageHeader';
 import { DatasetSidebar } from '../../components/workspace/DatasetSidebar';
 import { WorkspaceContent } from '../../components/workspace/WorkspaceContent';
 import { MarketplacePanel } from '../../components/workspace/MarketplacePanel';
+import { usePageTitle } from '../../hooks/usePageTitle';
 
 const WorkspaceInner = () => {
+  usePageTitle('Workspace');
   const { uploadDataset, setStage, selectDataset } = useWorkspace();
   const [isDragOver, setIsDragOver] = useState(false);
 
