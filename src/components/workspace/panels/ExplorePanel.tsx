@@ -164,6 +164,7 @@ export const ExplorePanel = () => {
             analysis={dataInsights?.analyses as any}
             documentName={activeDataset.name}
             documentType={activeDataset.type}
+            documentUrl={activeDataset.file}
             onRunAnalysis={handleRunAIAnalysis}
             isProcessing={state.isProcessing}
           />
