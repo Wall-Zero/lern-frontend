@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useWorkspace } from '../../../context/WorkspaceContext';
 import { Button } from '../../common/Button';
@@ -24,15 +24,37 @@ const DOCUMENT_TABS: { id: TabId; label: string; compareOnly?: boolean }[] = [
 
 const DOCUMENT_TYPES = ['pdf', 'doc', 'docx', 'txt', 'md'];
 
+// Keywords that indicate motion drafting intent
+const MOTION_KEYWORDS = ['motion', 'draft', 'write', 'compose', 'prepare', 'create'];
+const ANALYSIS_KEYWORDS = ['analyze', 'review', 'examine', 'check', 'identify', 'find'];
+
 export const ExplorePanel = () => {
   const { state, toggleMarketplace, runAnalysis, fetchDataInsights, fetchMultiDatasetInsights } = useWorkspace();
-  const { activeDataset, previewData, previewColumns, metadata, dataInsights, compareDatasets, compareMetadata, comparePreviewData, multiDatasetInsights } = state;
+  const { activeDataset, previewData, previewColumns, metadata, dataInsights, compareDatasets, compareMetadata, comparePreviewData, multiDatasetInsights, userIntent } = state;
   const hasCompareDatasets = compareDatasets.length > 0;
   const isDocument = activeDataset ? DOCUMENT_TYPES.includes(activeDataset.type?.toLowerCase()) : false;
   const TABS = isDocument ? DOCUMENT_TABS : DATA_TABS;
   const [activeTab, setActiveTab] = useState<TabId>(isDocument ? 'document' : 'overview');
   const [intent, setIntent] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Set the active tab based on user intent when entering explore mode
+  useEffect(() => {
+    if (!userIntent || !isDocument) return;
+
+    const intentLower = userIntent.toLowerCase();
+
+    // Check if intent suggests motion drafting
+    const isMotionIntent = MOTION_KEYWORDS.some(keyword => intentLower.includes(keyword));
+    // Check if intent suggests analysis
+    const isAnalysisIntent = ANALYSIS_KEYWORDS.some(keyword => intentLower.includes(keyword));
+
+    if (isMotionIntent && !isAnalysisIntent) {
+      setActiveTab('motion');
+    } else if (isAnalysisIntent) {
+      setActiveTab('document');
+    }
+  }, [userIntent, isDocument, activeDataset?.id]);
 
   if (!activeDataset) {
     return (
@@ -173,6 +195,7 @@ export const ExplorePanel = () => {
         {activeTab === 'motion' && isDocument && (
           <MotionDrafterTab
             dataSourceId={activeDataset.id}
+            initialIntent={userIntent}
           />
         )}
 

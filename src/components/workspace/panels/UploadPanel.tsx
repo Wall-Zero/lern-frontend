@@ -124,11 +124,32 @@ export const UploadPanel = () => {
           <p className="text-gray-500">{config.subtitle}</p>
         </div>
 
-        {/* Main Input Area */}
+        {/* Main Input Area - entire area is droppable */}
         <div
-          className="rounded-2xl overflow-hidden shadow-lg"
-          style={{ border: `2px solid ${config.borderColor}` }}
+          className="rounded-2xl overflow-hidden shadow-lg relative"
+          style={{ border: isDragOver ? `2px dashed ${config.color}` : `2px solid ${config.borderColor}` }}
+          onDrop={handleDrop}
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+          onDragLeave={(e) => {
+            // Only set false if leaving the container entirely
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setIsDragOver(false);
+            }
+          }}
         >
+          {/* Drag overlay */}
+          {isDragOver && (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center"
+              style={{ background: config.lightBg + 'ee' }}
+            >
+              <div className="text-center">
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>📄</div>
+                <p className="text-lg font-semibold" style={{ color: config.color }}>Drop file here</p>
+                <p className="text-sm text-gray-500">to add as context</p>
+              </div>
+            </div>
+          )}
           {/* Text Input */}
           <div className="bg-white">
             <textarea
@@ -159,11 +180,8 @@ export const UploadPanel = () => {
           <div
             className="p-4 bg-white cursor-pointer transition-all"
             style={{
-              background: isDragOver ? config.lightBg : (selectedFile || contextDataset) ? config.lightBg : '#fafafa',
+              background: (selectedFile || contextDataset) ? config.lightBg : '#fafafa',
             }}
-            onDrop={handleDrop}
-            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
             onClick={() => fileInputRef.current?.click()}
           >
             <input

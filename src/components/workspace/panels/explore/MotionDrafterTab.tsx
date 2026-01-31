@@ -37,6 +37,7 @@ interface MotionResult {
 
 interface MotionDrafterTabProps {
   dataSourceId?: number;
+  initialIntent?: string;
 }
 
 const MOTION_TYPES = [
@@ -45,7 +46,7 @@ const MOTION_TYPES = [
   { id: 'stay_of_proceedings', label: 'Stay of Proceedings', description: 'Motion to stay charges due to abuse of process' },
 ];
 
-export const MotionDrafterTab = ({ dataSourceId }: MotionDrafterTabProps) => {
+export const MotionDrafterTab = ({ dataSourceId, initialIntent }: MotionDrafterTabProps) => {
   const [selectedMotion, setSelectedMotion] = useState('charter_s8');
   const [caseDetails, setCaseDetails] = useState({
     client_name: '',
@@ -55,7 +56,7 @@ export const MotionDrafterTab = ({ dataSourceId }: MotionDrafterTabProps) => {
     date_of_incident: '',
     arresting_officer: '',
   });
-  const [caseDescription, setCaseDescription] = useState('');
+  const [caseDescription, setCaseDescription] = useState(initialIntent || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<MotionResult | null>(null);
   const [showForm, setShowForm] = useState(true);
