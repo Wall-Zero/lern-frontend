@@ -64,7 +64,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent }: MotionDrafterT
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      const response = await apiClient.post('/api/ai-tools/generate_motion/', {
+      const response = await apiClient.post('/ai-tools/generate_motion/', {
         motion_type: selectedMotion,
         case_details: caseDetails,
         case_description: caseDescription,
