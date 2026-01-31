@@ -34,10 +34,9 @@ export const ExplorePanel = () => {
   const hasCompareDatasets = compareDatasets.length > 0;
   const isDocument = activeDataset ? DOCUMENT_TYPES.includes(activeDataset.type?.toLowerCase()) : false;
 
-  // Get all available documents for reference in motion drafting (exclude current document)
+  // Get all available documents for reference in motion drafting (show all uploaded files)
   const availableDocuments = datasets
-    .filter(ds => DOCUMENT_TYPES.includes(ds.type?.toLowerCase()) && ds.id !== activeDataset?.id)
-    .map(ds => ({ id: ds.id, name: ds.name, type: ds.type }));
+    .map(ds => ({ id: ds.id, name: ds.name, type: ds.type || 'file' }));
   const TABS = isDocument ? DOCUMENT_TABS : DATA_TABS;
   const [activeTab, setActiveTab] = useState<TabId>(isDocument ? 'document' : 'overview');
   const [intent, setIntent] = useState('');
