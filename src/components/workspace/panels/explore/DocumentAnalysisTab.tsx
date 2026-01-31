@@ -263,9 +263,16 @@ const AnalysisPanel = ({ data }: { data: DocumentAnalysis }) => {
   );
 };
 
+// Helper to ensure URLs use HTTPS (fixes mixed content issues)
+const ensureHttps = (url: string | undefined): string | undefined => {
+  if (!url) return url;
+  return url.replace(/^http:\/\//i, 'https://');
+};
+
 // Document Preview Panel
 const DocumentPreview = ({ documentName, documentType, documentUrl }: { documentName: string; documentType: string; documentUrl?: string }) => {
   const isPdf = documentType.toLowerCase() === 'pdf';
+  const secureUrl = ensureHttps(documentUrl);
 
   return (
     <div style={{
@@ -292,9 +299,9 @@ const DocumentPreview = ({ documentName, documentType, documentUrl }: { document
         </div>
       </div>
       <div style={{ flex: 1, overflow: 'hidden' }}>
-        {documentUrl && isPdf ? (
+        {secureUrl && isPdf ? (
           <iframe
-            src={documentUrl}
+            src={secureUrl}
             style={{ width: '100%', height: '100%', border: 'none' }}
             title="Document Preview"
           />
