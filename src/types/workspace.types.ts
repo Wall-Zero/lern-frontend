@@ -108,4 +108,6 @@ export interface WorkspaceContextType {
   toggleCompareDataset: (id: number) => Promise<void>;
   clearCompareDatasets: () => void;
   fetchMultiDatasetInsights: (intent?: string, providers?: string[]) => Promise<void>;
+  // Delete
+  deleteDataset: (id: number) => Promise<void>;
 }

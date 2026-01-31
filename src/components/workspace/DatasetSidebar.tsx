@@ -24,7 +24,7 @@ const DocumentIcon = () => (
 );
 
 export const DatasetSidebar = () => {
-  const { state, selectDataset, uploadDataset, setStage, setWorkspaceMode, toggleCompareDataset, clearCompareDatasets } = useWorkspace();
+  const { state, selectDataset, uploadDataset, setStage, setWorkspaceMode, toggleCompareDataset, clearCompareDatasets, deleteDataset } = useWorkspace();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [hoveredDatasetId, setHoveredDatasetId] = useState<number | null>(null);
@@ -285,6 +285,24 @@ export const DatasetSidebar = () => {
                       </div>
                     </div>
                   </button>
+                  {/* Delete button - visible on hover */}
+                  {isHovered && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Delete "${ds.name}"?`)) {
+                          deleteDataset(ds.id);
+                        }
+                      }}
+                      className="flex-shrink-0 p-1.5 rounded-md transition-colors hover:bg-red-100"
+                      style={{ color: '#ef4444' }}
+                      title="Delete"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </motion.div>
             );

@@ -276,6 +276,27 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, []);
 
+  const deleteDataset = useCallback(async (id: number) => {
+    try {
+      setState((prev) => ({ ...prev, isProcessing: true }));
+      await datasetsApi.delete(id);
+      toast.success('Deleted successfully');
+      // Clear active dataset if it was the one deleted
+      setState((prev) => ({
+        ...prev,
+        activeDataset: prev.activeDataset?.id === id ? null : prev.activeDataset,
+        compareDatasets: prev.compareDatasets.filter((ds) => ds.id !== id),
+        stage: prev.activeDataset?.id === id ? 'upload' : prev.stage,
+        isProcessing: false,
+      }));
+      await refreshDatasets();
+    } catch (err) {
+      console.error('Delete failed:', err);
+      toast.error('Failed to delete');
+      setState((prev) => ({ ...prev, isProcessing: false }));
+    }
+  }, [refreshDatasets]);
+
   const fetchMultiDatasetInsights = useCallback(async (intent?: string, providers?: string[]) => {
     if (state.compareDatasets.length < 2) {
       toast.error('Select at least 2 datasets to compare');
@@ -321,6 +342,7 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         toggleCompareDataset,
         clearCompareDatasets,
         fetchMultiDatasetInsights,
+        deleteDataset,
       }}
     >
       {children}
