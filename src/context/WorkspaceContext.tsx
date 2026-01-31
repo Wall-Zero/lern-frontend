@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { Stage, WorkspaceState, WorkspaceContextType, QuickTrainConfig, MergeFredConfig, DatasetMetadata } from '../types/workspace.types';
+import type { Stage, WorkspaceMode, WorkspaceState, WorkspaceContextType, QuickTrainConfig, MergeFredConfig, DatasetMetadata } from '../types/workspace.types';
 import type { DataInsightsResponse, MultiDatasetInsightsResponse } from '../types/dataset.types';
 import { datasetsApi } from '../api/endpoints/datasets';
 import { workspaceApi } from '../api/endpoints/workspace';
@@ -8,6 +8,8 @@ import toast from 'react-hot-toast';
 
 const initialState: WorkspaceState = {
   stage: 'upload',
+  workspaceMode: 'legal',
+  userIntent: '',
   activeDataset: null,
   activeTool: null,
   rightPanel: 'hidden',
@@ -191,6 +193,14 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     setState((prev) => ({ ...prev, stage }));
   }, []);
 
+  const setWorkspaceMode = useCallback((mode: WorkspaceMode) => {
+    setState((prev) => ({ ...prev, workspaceMode: mode }));
+  }, []);
+
+  const setUserIntent = useCallback((intent: string) => {
+    setState((prev) => ({ ...prev, userIntent: intent }));
+  }, []);
+
   const toggleMarketplace = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -303,6 +313,8 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         mergeFred,
         fetchDataInsights,
         setStage,
+        setWorkspaceMode,
+        setUserIntent,
         toggleMarketplace,
         refreshDatasets,
         setIsProcessing,

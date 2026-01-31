@@ -5,8 +5,6 @@ import { useWorkspace } from '../../context/WorkspaceContext';
 import logoImage from '../../assets/logo.png';
 import { Spinner } from '../common/Spinner';
 
-type WorkspaceMode = 'legal' | 'data';
-
 const ScaleIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
@@ -26,14 +24,14 @@ const DocumentIcon = () => (
 );
 
 export const DatasetSidebar = () => {
-  const { state, selectDataset, uploadDataset, setStage, toggleCompareDataset, clearCompareDatasets } = useWorkspace();
-  const [mode, setMode] = useState<WorkspaceMode>('legal');
+  const { state, selectDataset, uploadDataset, setStage, setWorkspaceMode, toggleCompareDataset, clearCompareDatasets } = useWorkspace();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [hoveredDatasetId, setHoveredDatasetId] = useState<number | null>(null);
   const [isDropzoneHovered, setIsDropzoneHovered] = useState(false);
-  const [userIntent, setUserIntent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const mode = state.workspaceMode;
 
   const modeConfig = {
     legal: {
@@ -113,7 +111,7 @@ export const DatasetSidebar = () => {
       <div className="p-3 border-b border-gray-200">
         <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
           <button
-            onClick={() => setMode('legal')}
+            onClick={() => setWorkspaceMode('legal')}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg transition-all"
             style={{
               background: mode === 'legal' ? modeConfig.legal.bgGradient : 'transparent',
@@ -127,7 +125,7 @@ export const DatasetSidebar = () => {
             Legal
           </button>
           <button
-            onClick={() => setMode('data')}
+            onClick={() => setWorkspaceMode('data')}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg transition-all"
             style={{
               background: mode === 'data' ? modeConfig.data.bgGradient : 'transparent',
@@ -143,62 +141,11 @@ export const DatasetSidebar = () => {
         </div>
       </div>
 
-      {/* Intent Input */}
-      <div className="mx-3 mt-3">
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{
-            border: `1px solid ${currentMode.color}30`,
-            background: currentMode.lightBg,
-          }}
-        >
-          <textarea
-            value={userIntent}
-            onChange={(e) => setUserIntent(e.target.value)}
-            placeholder={
-              mode === 'legal'
-                ? "What legal task do you need help with?\n\nE.g., \"Review this contract for risks\" or \"Draft a motion to suppress evidence\""
-                : "What would you like to analyze?\n\nE.g., \"Find patterns in sales data\" or \"Predict customer churn\""
-            }
-            className="w-full resize-none focus:outline-none"
-            style={{
-              padding: '12px',
-              fontSize: '13px',
-              lineHeight: '1.5',
-              minHeight: '100px',
-              background: 'transparent',
-              color: '#374151',
-              border: 'none',
-            }}
-          />
-          {userIntent.trim() && (
-            <div
-              className="px-3 py-2 flex justify-end"
-              style={{ borderTop: `1px solid ${currentMode.color}20` }}
-            >
-              <button
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold transition-all hover:opacity-90"
-                style={{ background: currentMode.bgGradient }}
-                onClick={() => {
-                  // TODO: Process intent
-                  console.log('Processing intent:', userIntent);
-                }}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Start
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Divider with "or" */}
-      <div className="flex items-center gap-3 mx-3 my-3">
-        <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-xs text-gray-400 font-medium">or upload files</span>
-        <div className="flex-1 h-px bg-gray-200" />
+      {/* Section Header */}
+      <div className="px-3 pt-3 pb-2">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          {mode === 'legal' ? 'Documents' : 'Datasets'}
+        </p>
       </div>
 
       {/* Upload dropzone */}
@@ -246,11 +193,11 @@ export const DatasetSidebar = () => {
               }}
             >
               <svg className="w-4 h-4" style={{ color: currentMode.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </div>
             <div className="text-left">
-              <p className="text-sm font-medium text-gray-700">Drop files here</p>
+              <p className="text-sm font-medium text-gray-700">Add files</p>
               <p className="text-xs text-gray-400">{currentMode.uploadText}</p>
             </div>
           </div>

@@ -2,6 +2,7 @@ import type { Dataset, DataInsightsResponse, MultiDatasetInsightsResponse } from
 import type { AITool } from './aitools.types';
 
 export type Stage = 'upload' | 'explore' | 'insights' | 'train' | 'predict';
+export type WorkspaceMode = 'legal' | 'data';
 
 export interface ColumnMetadata {
   name: string;
@@ -37,6 +38,8 @@ export interface ComparePreviewData {
 
 export interface WorkspaceState {
   stage: Stage;
+  workspaceMode: WorkspaceMode;
+  userIntent: string;
   activeDataset: Dataset | null;
   activeTool: AITool | null;
   rightPanel: 'hidden' | 'marketplace';
@@ -96,6 +99,8 @@ export interface WorkspaceContextType {
   mergeFred: (config: MergeFredConfig) => Promise<void>;
   fetchDataInsights: (intent?: string, providers?: string[]) => Promise<void>;
   setStage: (stage: Stage) => void;
+  setWorkspaceMode: (mode: WorkspaceMode) => void;
+  setUserIntent: (intent: string) => void;
   toggleMarketplace: () => void;
   refreshDatasets: () => Promise<void>;
   setIsProcessing: (v: boolean) => void;
