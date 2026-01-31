@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useWorkspace } from '../../../context/WorkspaceContext';
+import type { Dataset } from '../../../types/dataset.types';
 
 const ScaleIcon = () => (
   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -17,6 +18,7 @@ const DataIcon = () => (
 export const UploadPanel = () => {
   const { state, setUserIntent, uploadDataset, selectDataset } = useWorkspace();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [contextDataset, setContextDataset] = useState<Dataset | null>(null);
   const [name, setName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -64,26 +66,40 @@ export const UploadPanel = () => {
     e.stopPropagation();
     setIsDragOver(false);
 
+    // Check if an existing dataset was dropped
     const datasetId = e.dataTransfer.getData('application/x-dataset-id');
     if (datasetId) {
-      selectDataset(Number(datasetId));
+      // Find the dataset and set it as context (don't navigate to explore yet)
+      const dataset = state.datasets.find((ds) => ds.id === Number(datasetId));
+      if (dataset) {
+        setContextDataset(dataset);
+        setSelectedFile(null); // Clear any file selection
+      }
       return;
     }
 
+    // Handle new file drop
     const file = e.dataTransfer.files[0];
-    if (file) handleFileSelect(file);
+    if (file) {
+      handleFileSelect(file);
+      setContextDataset(null); // Clear any dataset selection
+    }
   };
 
   const handleStart = async () => {
     if (!userIntent.trim()) return;
     setIsUploading(true);
     try {
-      // If there's a file, upload it first
-      if (selectedFile && name) {
+      if (contextDataset) {
+        // Use existing dataset as context - just select it
+        await selectDataset(contextDataset.id);
+      } else if (selectedFile && name) {
+        // Upload new file first, then it will be selected
         await uploadDataset(selectedFile, name);
+        // After upload, find the new dataset and select it
+        // The datasets list will refresh, we need to find the newly created one
       }
-      // TODO: Process intent with AI
-      console.log('Starting with intent:', userIntent, 'file:', selectedFile?.name);
+      console.log('Starting with intent:', userIntent, 'context:', contextDataset?.name || selectedFile?.name);
     } finally {
       setIsUploading(false);
     }
@@ -143,7 +159,7 @@ export const UploadPanel = () => {
           <div
             className="p-4 bg-white cursor-pointer transition-all"
             style={{
-              background: isDragOver ? config.lightBg : selectedFile ? config.lightBg : '#fafafa',
+              background: isDragOver ? config.lightBg : (selectedFile || contextDataset) ? config.lightBg : '#fafafa',
             }}
             onDrop={handleDrop}
             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
@@ -160,7 +176,7 @@ export const UploadPanel = () => {
                 if (file) handleFileSelect(file);
               }}
             />
-            {selectedFile ? (
+            {(selectedFile || contextDataset) ? (
               <div className="flex items-center gap-3">
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center"
@@ -172,10 +188,22 @@ export const UploadPanel = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Context</p>
-                  <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {selectedFile ? selectedFile.name : contextDataset?.name}
+                  </p>
+                  {contextDataset && (
+                    <p className="text-xs text-gray-500">
+                      {contextDataset.row_count > 0 ? `${contextDataset.row_count} rows` : contextDataset.type?.toUpperCase()}
+                    </p>
+                  )}
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setSelectedFile(null); setName(''); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedFile(null);
+                    setContextDataset(null);
+                    setName('');
+                  }}
                   className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -217,7 +245,11 @@ export const UploadPanel = () => {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  {selectedFile ? `Start with ${selectedFile.name.length > 20 ? selectedFile.name.slice(0, 20) + '...' : selectedFile.name}` : 'Start'}
+                  {selectedFile
+                  ? `Start with ${selectedFile.name.length > 20 ? selectedFile.name.slice(0, 20) + '...' : selectedFile.name}`
+                  : contextDataset
+                    ? `Start with ${contextDataset.name.length > 20 ? contextDataset.name.slice(0, 20) + '...' : contextDataset.name}`
+                    : 'Start'}
                 </span>
               )}
             </button>
