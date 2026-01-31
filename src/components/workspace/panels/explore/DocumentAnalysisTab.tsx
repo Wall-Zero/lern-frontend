@@ -419,40 +419,73 @@ export const DocumentAnalysisTab = ({ analysis, documentName, documentType, docu
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
             AI Analysis
           </div>
-          <div style={{ display: 'flex', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Provider toggles */}
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button
+                onClick={() => setActiveProvider('claude')}
+                disabled={!claudeAnalysis}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  background: activeProvider === 'claude' ? PROVIDER_INFO.claude.bg : '#fff',
+                  color: activeProvider === 'claude' ? PROVIDER_INFO.claude.color : '#6b7280',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  cursor: claudeAnalysis ? 'pointer' : 'not-allowed',
+                  opacity: claudeAnalysis ? 1 : 0.5,
+                }}
+              >
+                🧠 Claude
+              </button>
+              <button
+                onClick={() => setActiveProvider('gemini')}
+                disabled={!geminiAnalysis}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 500,
+                  background: activeProvider === 'gemini' ? PROVIDER_INFO.gemini.bg : '#fff',
+                  color: activeProvider === 'gemini' ? PROVIDER_INFO.gemini.color : '#6b7280',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  cursor: geminiAnalysis ? 'pointer' : 'not-allowed',
+                  opacity: geminiAnalysis ? 1 : 0.5,
+                }}
+              >
+                ✨ Gemini
+              </button>
+            </div>
+            {/* Re-analyze button */}
             <button
-              onClick={() => setActiveProvider('claude')}
-              disabled={!claudeAnalysis}
+              onClick={onRunAnalysis}
+              disabled={isProcessing}
               style={{
-                padding: '4px 10px',
+                padding: '4px 12px',
                 fontSize: '11px',
-                fontWeight: 500,
-                background: activeProvider === 'claude' ? PROVIDER_INFO.claude.bg : '#fff',
-                color: activeProvider === 'claude' ? PROVIDER_INFO.claude.color : '#6b7280',
-                border: '1px solid #e5e7eb',
+                fontWeight: 600,
+                color: '#fff',
+                background: isProcessing ? '#9ca3af' : 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                border: 'none',
                 borderRadius: '6px',
-                cursor: claudeAnalysis ? 'pointer' : 'not-allowed',
-                opacity: claudeAnalysis ? 1 : 0.5,
+                cursor: isProcessing ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
               }}
             >
-              🧠 Claude
-            </button>
-            <button
-              onClick={() => setActiveProvider('gemini')}
-              disabled={!geminiAnalysis}
-              style={{
-                padding: '4px 10px',
-                fontSize: '11px',
-                fontWeight: 500,
-                background: activeProvider === 'gemini' ? PROVIDER_INFO.gemini.bg : '#fff',
-                color: activeProvider === 'gemini' ? PROVIDER_INFO.gemini.color : '#6b7280',
-                border: '1px solid #e5e7eb',
-                borderRadius: '6px',
-                cursor: geminiAnalysis ? 'pointer' : 'not-allowed',
-                opacity: geminiAnalysis ? 1 : 0.5,
-              }}
-            >
-              ✨ Gemini
+              {isProcessing ? (
+                <>
+                  <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
+                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                  Analyzing...
+                </>
+              ) : (
+                <>🔄 Re-analyze</>
+              )}
             </button>
           </div>
         </div>
@@ -468,25 +501,6 @@ export const DocumentAnalysisTab = ({ analysis, documentName, documentType, docu
           )}
         </div>
 
-        {/* Re-run button */}
-        <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
-          <button
-            onClick={onRunAnalysis}
-            disabled={isProcessing}
-            style={{
-              padding: '6px 16px',
-              fontSize: '12px',
-              fontWeight: 500,
-              color: '#6b7280',
-              background: '#f3f4f6',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
-              cursor: isProcessing ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isProcessing ? 'Re-analyzing...' : '🔄 Re-run Analysis'}
-          </button>
-        </div>
       </div>
     </motion.div>
   );
