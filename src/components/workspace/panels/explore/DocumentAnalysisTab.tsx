@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface DocumentAnalysis {
@@ -68,8 +67,8 @@ interface DocumentAnalysisTabProps {
 }
 
 const PROVIDER_INFO = {
-  claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7', icon: '🧠' },
-  gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE', icon: '✨' },
+  claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7', icon: '🧠', gradient: 'linear-gradient(135deg, #D97706, #F59E0B)' },
+  gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE', icon: '✨', gradient: 'linear-gradient(135deg, #2563EB, #3B82F6)' },
 };
 
 const SeverityBadge = ({ severity }: { severity: 'high' | 'medium' | 'low' }) => {
@@ -121,7 +120,18 @@ const Section = ({ title, icon, children }: { title: string; icon: string; child
 );
 
 // Single provider analysis panel
-const AnalysisPanel = ({ data }: { data: DocumentAnalysis }) => {
+const AnalysisPanel = ({ data, provider }: { data: DocumentAnalysis | undefined; provider: 'claude' | 'gemini' }) => {
+  const info = PROVIDER_INFO[provider];
+
+  if (!data) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+        <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}>{info.icon}</div>
+        <p style={{ fontSize: '14px', margin: 0 }}>No {info.name} analysis yet</p>
+      </div>
+    );
+  }
+
   if (!data.success) {
     return (
       <div style={{ padding: '20px', textAlign: 'center', color: '#9ca3af' }}>
@@ -214,20 +224,6 @@ const AnalysisPanel = ({ data }: { data: DocumentAnalysis }) => {
         </Section>
       )}
 
-      {/* Parties */}
-      {data.parties_involved && data.parties_involved.length > 0 && (
-        <Section title="Parties" icon="👥">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {data.parties_involved.map((party, i) => (
-              <div key={i} style={{ padding: '8px', background: '#f9fafb', borderRadius: '6px' }}>
-                <div style={{ fontWeight: 600, color: '#111827', fontSize: '12px' }}>{party.name}</div>
-                <div style={{ fontSize: '11px', color: '#7c3aed' }}>{party.role}</div>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
-
       {/* Recommendations */}
       {data.recommendations && data.recommendations.length > 0 && (
         <Section title="Recommendations" icon="💡">
@@ -263,126 +259,54 @@ const AnalysisPanel = ({ data }: { data: DocumentAnalysis }) => {
   );
 };
 
-// Helper to ensure URLs use HTTPS (fixes mixed content issues)
-const ensureHttps = (url: string | undefined): string | undefined => {
-  if (!url) return url;
-  return url.replace(/^http:\/\//i, 'https://');
-};
-
-// Document Preview Panel
-const DocumentPreview = ({ documentName, documentType, documentUrl }: { documentName: string; documentType: string; documentUrl?: string }) => {
-  const isPdf = documentType.toLowerCase() === 'pdf';
-  const secureUrl = ensureHttps(documentUrl);
-
-  return (
-    <div style={{
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      background: '#fff',
-      borderRadius: '12px',
-      border: '1px solid #e5e7eb',
-      overflow: 'hidden',
-    }}>
-      <div style={{
-        padding: '12px 16px',
-        borderBottom: '1px solid #e5e7eb',
-        background: '#f9fafb',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-      }}>
-        <span style={{ fontSize: '16px' }}>📄</span>
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>Document Context</div>
-          <div style={{ fontSize: '11px', color: '#6b7280' }}>{documentName}</div>
-        </div>
-      </div>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        {secureUrl && isPdf ? (
-          <iframe
-            src={secureUrl}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="Document Preview"
-          />
-        ) : (
-          <div style={{
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '40px',
-            textAlign: 'center',
-            color: '#9ca3af',
-          }}>
-            <div>
-              <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📄</div>
-              <p style={{ fontSize: '14px', margin: '0 0 4px 0' }}>{documentName}</p>
-              <p style={{ fontSize: '12px', margin: 0 }}>{documentType.toUpperCase()} Document</p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export const DocumentAnalysisTab = ({ analysis, documentName, documentType, documentUrl, onRunAnalysis, isProcessing }: DocumentAnalysisTabProps) => {
-  const [activeProvider, setActiveProvider] = useState<'claude' | 'gemini'>('claude');
-
+export const DocumentAnalysisTab = ({ analysis, documentName, onRunAnalysis, isProcessing }: DocumentAnalysisTabProps) => {
   const claudeAnalysis = analysis?.claude;
   const geminiAnalysis = analysis?.gemini;
   const hasAnyAnalysis = claudeAnalysis || geminiAnalysis;
-  const currentAnalysis = activeProvider === 'claude' ? claudeAnalysis : geminiAnalysis;
 
   if (!hasAnyAnalysis) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', height: '500px' }}
-      >
-        {/* Document Preview */}
-        <DocumentPreview documentName={documentName} documentType={documentType} documentUrl={documentUrl} />
-
-        {/* Run Analysis CTA */}
-        <div style={{
+        style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          height: '500px',
           background: '#fff',
           borderRadius: '12px',
           border: '2px dashed #e5e7eb',
-        }}>
-          <div style={{ textAlign: 'center', padding: '40px' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🤖</div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#111827', margin: '0 0 8px 0' }}>
-              AI Analysis
-            </h3>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 24px 0', maxWidth: '280px' }}>
-              Run AI analysis to extract insights, identify risks, and get recommendations
-            </p>
-            <button
-              onClick={onRunAnalysis}
-              disabled={isProcessing}
-              style={{
-                padding: '12px 32px',
-                fontSize: '14px',
-                fontWeight: 600,
-                color: '#fff',
-                background: isProcessing ? '#9ca3af' : 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: isProcessing ? 'not-allowed' : 'pointer',
-                boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
-              }}
-            >
-              {isProcessing ? 'Analyzing...' : 'Run Analysis'}
-            </button>
-            <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '12px' }}>
-              Powered by Claude 🧠 and Gemini ✨
-            </p>
-          </div>
+        }}
+      >
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🤖</div>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#111827', margin: '0 0 8px 0' }}>
+            AI Analysis for "{documentName}"
+          </h3>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 24px 0', maxWidth: '400px' }}>
+            Run AI analysis to extract insights, identify risks, and get recommendations from both Claude and Gemini
+          </p>
+          <button
+            onClick={onRunAnalysis}
+            disabled={isProcessing}
+            style={{
+              padding: '12px 32px',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#fff',
+              background: isProcessing ? '#9ca3af' : 'linear-gradient(135deg, #7c3aed, #a855f7)',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: isProcessing ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
+            }}
+          >
+            {isProcessing ? 'Analyzing...' : 'Run Analysis'}
+          </button>
+          <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '12px' }}>
+            Powered by Claude 🧠 and Gemini ✨
+          </p>
         </div>
       </motion.div>
     );
@@ -393,114 +317,110 @@ export const DocumentAnalysisTab = ({ analysis, documentName, documentType, docu
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', height: '600px' }}
     >
-      {/* Left: Document Preview */}
-      <DocumentPreview documentName={documentName} documentType={documentType} documentUrl={documentUrl} />
-
-      {/* Right: AI Analysis */}
+      {/* Header with re-analyze button */}
       <div style={{
         display: 'flex',
-        flexDirection: 'column',
-        background: '#fff',
-        borderRadius: '12px',
-        border: '1px solid #e5e7eb',
-        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '16px',
       }}>
-        {/* Provider Toggle */}
-        <div style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid #e5e7eb',
-          background: '#f9fafb',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>
-            AI Analysis
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Provider toggles */}
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <button
-                onClick={() => setActiveProvider('claude')}
-                disabled={!claudeAnalysis}
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  background: activeProvider === 'claude' ? PROVIDER_INFO.claude.bg : '#fff',
-                  color: activeProvider === 'claude' ? PROVIDER_INFO.claude.color : '#6b7280',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '6px',
-                  cursor: claudeAnalysis ? 'pointer' : 'not-allowed',
-                  opacity: claudeAnalysis ? 1 : 0.5,
-                }}
-              >
-                🧠 Claude
-              </button>
-              <button
-                onClick={() => setActiveProvider('gemini')}
-                disabled={!geminiAnalysis}
-                style={{
-                  padding: '4px 10px',
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  background: activeProvider === 'gemini' ? PROVIDER_INFO.gemini.bg : '#fff',
-                  color: activeProvider === 'gemini' ? PROVIDER_INFO.gemini.color : '#6b7280',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '6px',
-                  cursor: geminiAnalysis ? 'pointer' : 'not-allowed',
-                  opacity: geminiAnalysis ? 1 : 0.5,
-                }}
-              >
-                ✨ Gemini
-              </button>
-            </div>
-            {/* Re-analyze button */}
-            <button
-              onClick={onRunAnalysis}
-              disabled={isProcessing}
-              style={{
-                padding: '4px 12px',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#fff',
-                background: isProcessing ? '#9ca3af' : 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: isProcessing ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-              }}
-            >
-              {isProcessing ? (
-                <>
-                  <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
-                    <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-                  </svg>
-                  Analyzing...
-                </>
-              ) : (
-                <>🔄 Re-analyze</>
-              )}
-            </button>
-          </div>
+        <div>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#111827', margin: 0 }}>
+            Analysis: {documentName}
+          </h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0 0' }}>
+            Side-by-side comparison from Claude and Gemini
+          </p>
         </div>
-
-        {/* Analysis Content */}
-        <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
-          {currentAnalysis ? (
-            <AnalysisPanel data={currentAnalysis} />
+        <button
+          onClick={onRunAnalysis}
+          disabled={isProcessing}
+          style={{
+            padding: '8px 16px',
+            fontSize: '13px',
+            fontWeight: 600,
+            color: '#fff',
+            background: isProcessing ? '#9ca3af' : 'linear-gradient(135deg, #7c3aed, #a855f7)',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: isProcessing ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          {isProcessing ? (
+            <>
+              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
+                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              Analyzing...
+            </>
           ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
-              <p>No analysis available for this provider</p>
-            </div>
+            <>🔄 Re-analyze</>
           )}
+        </button>
+      </div>
+
+      {/* Side by side panels */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        {/* Claude Panel */}
+        <div style={{
+          background: '#fff',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          overflow: 'hidden',
+          maxHeight: '600px',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          <div style={{
+            padding: '12px 16px',
+            background: PROVIDER_INFO.claude.bg,
+            borderBottom: `2px solid ${PROVIDER_INFO.claude.color}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            <span style={{ fontSize: '20px' }}>{PROVIDER_INFO.claude.icon}</span>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: PROVIDER_INFO.claude.color }}>
+              {PROVIDER_INFO.claude.name}
+            </span>
+          </div>
+          <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+            <AnalysisPanel data={claudeAnalysis} provider="claude" />
+          </div>
         </div>
 
+        {/* Gemini Panel */}
+        <div style={{
+          background: '#fff',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          overflow: 'hidden',
+          maxHeight: '600px',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          <div style={{
+            padding: '12px 16px',
+            background: PROVIDER_INFO.gemini.bg,
+            borderBottom: `2px solid ${PROVIDER_INFO.gemini.color}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            <span style={{ fontSize: '20px' }}>{PROVIDER_INFO.gemini.icon}</span>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: PROVIDER_INFO.gemini.color }}>
+              {PROVIDER_INFO.gemini.name}
+            </span>
+          </div>
+          <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+            <AnalysisPanel data={geminiAnalysis} provider="gemini" />
+          </div>
+        </div>
       </div>
     </motion.div>
   );
