@@ -32,6 +32,7 @@ export const DatasetSidebar = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [hoveredDatasetId, setHoveredDatasetId] = useState<number | null>(null);
   const [isDropzoneHovered, setIsDropzoneHovered] = useState(false);
+  const [userIntent, setUserIntent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const modeConfig = {
@@ -142,27 +143,67 @@ export const DatasetSidebar = () => {
         </div>
       </div>
 
-      {/* Mode Description */}
-      <div
-        className="mx-3 mt-3 p-3 rounded-lg"
-        style={{ background: currentMode.lightBg }}
-      >
-        <div className="flex items-center gap-2">
-          <span style={{ color: currentMode.color }}>{currentMode.icon}</span>
-          <div>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: currentMode.color, margin: 0 }}>
-              {currentMode.description}
-            </p>
-            <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>
-              {mode === 'legal' ? 'Contract analysis, motion drafting' : 'AI insights, ML training'}
-            </p>
-          </div>
+      {/* Intent Input */}
+      <div className="mx-3 mt-3">
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{
+            border: `1px solid ${currentMode.color}30`,
+            background: currentMode.lightBg,
+          }}
+        >
+          <textarea
+            value={userIntent}
+            onChange={(e) => setUserIntent(e.target.value)}
+            placeholder={
+              mode === 'legal'
+                ? "What legal task do you need help with?\n\nE.g., \"Review this contract for risks\" or \"Draft a motion to suppress evidence\""
+                : "What would you like to analyze?\n\nE.g., \"Find patterns in sales data\" or \"Predict customer churn\""
+            }
+            className="w-full resize-none focus:outline-none"
+            style={{
+              padding: '12px',
+              fontSize: '13px',
+              lineHeight: '1.5',
+              minHeight: '100px',
+              background: 'transparent',
+              color: '#374151',
+              border: 'none',
+            }}
+          />
+          {userIntent.trim() && (
+            <div
+              className="px-3 py-2 flex justify-end"
+              style={{ borderTop: `1px solid ${currentMode.color}20` }}
+            >
+              <button
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-semibold transition-all hover:opacity-90"
+                style={{ background: currentMode.bgGradient }}
+                onClick={() => {
+                  // TODO: Process intent
+                  console.log('Processing intent:', userIntent);
+                }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Start
+              </button>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Divider with "or" */}
+      <div className="flex items-center gap-3 mx-3 my-3">
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="text-xs text-gray-400 font-medium">or upload files</span>
+        <div className="flex-1 h-px bg-gray-200" />
       </div>
 
       {/* Upload dropzone */}
       <div
-        className="mx-3 mt-3 p-4 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all"
+        className="mx-3 p-3 border-2 border-dashed rounded-xl text-center cursor-pointer transition-all"
         style={
           isDragOver
             ? { borderColor: currentMode.color, background: currentMode.lightBg }
@@ -191,26 +232,28 @@ export const DatasetSidebar = () => {
         {isUploading ? (
           <Spinner />
         ) : (
-          <>
+          <div className="flex items-center gap-3">
             <div
               style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
                 background: currentMode.lightBg,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                margin: '0 auto 10px',
+                flexShrink: 0,
               }}
             >
-              <svg className="w-5 h-5" style={{ color: currentMode.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4" style={{ color: currentMode.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-gray-700">Drop files here</p>
-            <p className="text-xs text-gray-400 mt-1">{currentMode.uploadText}</p>
-          </>
+            <div className="text-left">
+              <p className="text-sm font-medium text-gray-700">Drop files here</p>
+              <p className="text-xs text-gray-400">{currentMode.uploadText}</p>
+            </div>
+          </div>
         )}
       </div>
 
