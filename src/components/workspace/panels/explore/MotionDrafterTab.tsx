@@ -40,6 +40,7 @@ interface MotionResult {
 interface MotionResults {
   claude?: MotionResult;
   gemini?: MotionResult;
+  gpt4?: MotionResult;
 }
 
 interface DocumentRef {
@@ -62,7 +63,7 @@ const MOTION_TYPES = [
 
 export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocuments = [] }: MotionDrafterTabProps) => {
   const [selectedMotion, setSelectedMotion] = useState('charter_s8');
-  const [selectedProviders, setSelectedProviders] = useState<Provider[]>(['claude', 'gemini']);
+  const [selectedProviders, setSelectedProviders] = useState<Provider[]>(['claude', 'gemini', 'gpt4']);
   const [caseDetails, setCaseDetails] = useState({
     client_name: '',
     court_file_no: '',
@@ -116,13 +117,17 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
 
   const activeResult = results?.[activeResultTab];
 
-  const PROVIDER_INFO = {
+  const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string }> = {
     claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7' },
     gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE' },
+    gpt4: { name: 'GPT-4', color: '#10B981', bg: '#D1FAE5' },
   };
 
+  // Get providers that have results
+  const availableResults = (['claude', 'gemini', 'gpt4'] as Provider[]).filter(p => results?.[p]);
+
   if (!showForm && results) {
-    const hasMultipleResults = results.claude && results.gemini;
+    const hasMultipleResults = availableResults.length > 1;
     const result = activeResult;
 
     return (
@@ -174,7 +179,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
           </div>
         </div>
 
-        {/* Provider Tabs - only show if both providers returned results */}
+        {/* Provider Tabs - only show if multiple providers returned results */}
         {hasMultipleResults && (
           <div style={{
             display: 'flex',
@@ -184,7 +189,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
             background: '#f3f4f6',
             borderRadius: '10px',
           }}>
-            {(['claude', 'gemini'] as Provider[]).map((provider) => {
+            {availableResults.map((provider) => {
               const info = PROVIDER_INFO[provider];
               const isActive = activeResultTab === provider;
               return (

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export type Provider = 'claude' | 'gemini';
+export type Provider = 'claude' | 'gemini' | 'gpt4';
 
 interface ModelSelectorProps {
   selectedProviders: Provider[];
@@ -23,6 +23,13 @@ const PROVIDERS = [
     color: '#2563EB',
     bg: '#DBEAFE',
     description: 'Google Gemini - Fast analysis'
+  },
+  {
+    id: 'gpt4' as Provider,
+    name: 'GPT-4',
+    color: '#10B981',
+    bg: '#D1FAE5',
+    description: 'OpenAI GPT-4 - Versatile intelligence'
   },
 ];
 
@@ -56,7 +63,11 @@ export const ModelSelector = ({
 
   const getSelectedLabel = () => {
     if (selectedProviders.length === 0) return 'Select model(s)';
-    if (selectedProviders.length === 2) return 'Claude + Gemini';
+    if (selectedProviders.length === 3) return 'All Models';
+    if (selectedProviders.length === 2) {
+      const names = selectedProviders.map(p => PROVIDERS.find(pr => pr.id === p)?.name).join(' + ');
+      return names;
+    }
     const provider = PROVIDERS.find(p => p.id === selectedProviders[0]);
     return provider?.name || 'Select model(s)';
   };
@@ -94,29 +105,20 @@ export const ModelSelector = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {selectedProviders.length === 2 && (
+          {selectedProviders.length > 0 && (
             <div style={{ display: 'flex', gap: '4px' }}>
-              <span style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: '#D97706'
-              }} />
-              <span style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: '#2563EB'
-              }} />
+              {selectedProviders.map(p => {
+                const provider = PROVIDERS.find(pr => pr.id === p);
+                return (
+                  <span key={p} style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: provider?.color
+                  }} />
+                );
+              })}
             </div>
-          )}
-          {selectedProviders.length === 1 && (
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: PROVIDERS.find(p => p.id === selectedProviders[0])?.color
-            }} />
           )}
           <span>{getSelectedLabel()}</span>
         </div>
@@ -176,7 +178,7 @@ export const ModelSelector = ({
                 <button
                   type="button"
                   onClick={() => {
-                    onSelectionChange(['claude', 'gemini']);
+                    onSelectionChange(['claude', 'gemini', 'gpt4']);
                     setIsOpen(false);
                   }}
                   style={{
@@ -184,31 +186,26 @@ export const ModelSelector = ({
                     padding: '6px 10px',
                     fontSize: '12px',
                     fontWeight: 500,
-                    background: selectedProviders.length === 2 ? 'linear-gradient(135deg, #7c3aed, #6366f1)' : '#fff',
-                    color: selectedProviders.length === 2 ? '#fff' : '#374151',
+                    background: selectedProviders.length === 3 ? 'linear-gradient(135deg, #7c3aed, #6366f1)' : '#fff',
+                    color: selectedProviders.length === 3 ? '#fff' : '#374151',
                     border: '1px solid #e5e7eb',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
+                    gap: '4px',
                   }}
                 >
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: selectedProviders.length === 2 ? '#fff' : '#D97706'
-                  }} />
-                  <span>+</span>
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: selectedProviders.length === 2 ? '#fff' : '#2563EB'
-                  }} />
-                  <span style={{ marginLeft: '4px' }}>Both Models</span>
+                  {PROVIDERS.map(p => (
+                    <span key={p.id} style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: selectedProviders.length === 3 ? '#fff' : p.color
+                    }} />
+                  ))}
+                  <span style={{ marginLeft: '4px' }}>All Models</span>
                 </button>
               </div>
             </div>

@@ -60,7 +60,7 @@ interface DocumentAnalysis {
 }
 
 interface DocumentAnalysisTabProps {
-  analysis: { claude?: DocumentAnalysis; gemini?: DocumentAnalysis } | null;
+  analysis: { claude?: DocumentAnalysis; gemini?: DocumentAnalysis; gpt4?: DocumentAnalysis } | null;
   documentName: string;
   documentType: string;
   documentUrl?: string;
@@ -68,9 +68,10 @@ interface DocumentAnalysisTabProps {
   isProcessing: boolean;
 }
 
-const PROVIDER_INFO = {
+const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string; gradient: string }> = {
   claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7', gradient: 'linear-gradient(135deg, #D97706, #F59E0B)' },
   gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE', gradient: 'linear-gradient(135deg, #2563EB, #3B82F6)' },
+  gpt4: { name: 'GPT-4', color: '#10B981', bg: '#D1FAE5', gradient: 'linear-gradient(135deg, #10B981, #34D399)' },
 };
 
 const SeverityBadge = ({ severity }: { severity: 'high' | 'medium' | 'low' }) => {
@@ -265,10 +266,14 @@ const AnalysisPanel = ({ data, provider }: { data: DocumentAnalysis | undefined;
 };
 
 export const DocumentAnalysisTab = ({ analysis, documentName, onRunAnalysis, isProcessing }: DocumentAnalysisTabProps) => {
-  const [selectedProviders, setSelectedProviders] = useState<Provider[]>(['claude', 'gemini']);
+  const [selectedProviders, setSelectedProviders] = useState<Provider[]>(['claude', 'gemini', 'gpt4']);
   const claudeAnalysis = analysis?.claude;
   const geminiAnalysis = analysis?.gemini;
-  const hasAnyAnalysis = claudeAnalysis || geminiAnalysis;
+  const gpt4Analysis = analysis?.gpt4;
+  const hasAnyAnalysis = claudeAnalysis || geminiAnalysis || gpt4Analysis;
+
+  // Get providers that have results
+  const availableResults = (['claude', 'gemini', 'gpt4'] as const).filter(p => analysis?.[p]);
 
   const handleRunAnalysis = () => {
     onRunAnalysis(selectedProviders);
@@ -414,81 +419,49 @@ export const DocumentAnalysisTab = ({ analysis, documentName, onRunAnalysis, isP
         </div>
       </div>
 
-      {/* Analysis panels - side by side if both, single if one */}
+      {/* Analysis panels - dynamic grid based on number of results */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: claudeAnalysis && geminiAnalysis ? '1fr 1fr' : '1fr',
-        gap: '20px'
+        gridTemplateColumns: availableResults.length === 1 ? '1fr' : availableResults.length === 2 ? '1fr 1fr' : '1fr 1fr 1fr',
+        gap: '16px'
       }}>
-        {/* Claude Panel */}
-        {claudeAnalysis && (
-          <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            border: '1px solid #e5e7eb',
-            overflow: 'hidden',
-            maxHeight: '600px',
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            <div style={{
-              padding: '12px 16px',
-              background: PROVIDER_INFO.claude.bg,
-              borderBottom: `2px solid ${PROVIDER_INFO.claude.color}`,
+        {availableResults.map(providerId => {
+          const providerInfo = PROVIDER_INFO[providerId];
+          const providerData = analysis?.[providerId];
+          return (
+            <div key={providerId} style={{
+              background: '#fff',
+              borderRadius: '12px',
+              border: '1px solid #e5e7eb',
+              overflow: 'hidden',
+              maxHeight: '600px',
               display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
+              flexDirection: 'column',
             }}>
-              <span style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                background: PROVIDER_INFO.claude.color
-              }} />
-              <span style={{ fontSize: '14px', fontWeight: 600, color: PROVIDER_INFO.claude.color }}>
-                {PROVIDER_INFO.claude.name}
-              </span>
+              <div style={{
+                padding: '12px 16px',
+                background: providerInfo.bg,
+                borderBottom: `2px solid ${providerInfo.color}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <span style={{
+                  width: '12px',
+                  height: '12px',
+                  borderRadius: '50%',
+                  background: providerInfo.color
+                }} />
+                <span style={{ fontSize: '14px', fontWeight: 600, color: providerInfo.color }}>
+                  {providerInfo.name}
+                </span>
+              </div>
+              <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+                <AnalysisPanel data={providerData} provider={providerId as 'claude' | 'gemini'} />
+              </div>
             </div>
-            <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
-              <AnalysisPanel data={claudeAnalysis} provider="claude" />
-            </div>
-          </div>
-        )}
-
-        {/* Gemini Panel */}
-        {geminiAnalysis && (
-          <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            border: '1px solid #e5e7eb',
-            overflow: 'hidden',
-            maxHeight: '600px',
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            <div style={{
-              padding: '12px 16px',
-              background: PROVIDER_INFO.gemini.bg,
-              borderBottom: `2px solid ${PROVIDER_INFO.gemini.color}`,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}>
-              <span style={{
-                width: '12px',
-                height: '12px',
-                borderRadius: '50%',
-                background: PROVIDER_INFO.gemini.color
-              }} />
-              <span style={{ fontSize: '14px', fontWeight: 600, color: PROVIDER_INFO.gemini.color }}>
-                {PROVIDER_INFO.gemini.name}
-              </span>
-            </div>
-            <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
-              <AnalysisPanel data={geminiAnalysis} provider="gemini" />
-            </div>
-          </div>
-        )}
+          );
+        })}
       </div>
     </motion.div>
   );
