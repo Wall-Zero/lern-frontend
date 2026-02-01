@@ -120,7 +120,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
   const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string }> = {
     claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7' },
     gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE' },
-    gpt4: { name: 'GPT-4', color: '#10B981', bg: '#D1FAE5' },
+    gpt4: { name: 'GPT-5.2', color: '#10B981', bg: '#D1FAE5' },
   };
 
   // Get providers that have results

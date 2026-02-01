@@ -71,7 +71,7 @@ interface DocumentAnalysisTabProps {
 const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string; gradient: string }> = {
   claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7', gradient: 'linear-gradient(135deg, #D97706, #F59E0B)' },
   gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE', gradient: 'linear-gradient(135deg, #2563EB, #3B82F6)' },
-  gpt4: { name: 'GPT-4', color: '#10B981', bg: '#D1FAE5', gradient: 'linear-gradient(135deg, #10B981, #34D399)' },
+  gpt4: { name: 'GPT-5.2', color: '#10B981', bg: '#D1FAE5', gradient: 'linear-gradient(135deg, #10B981, #34D399)' },
 };
 
 const SeverityBadge = ({ severity }: { severity: 'high' | 'medium' | 'low' }) => {

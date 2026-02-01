@@ -26,7 +26,7 @@ const PROVIDERS = [
   },
   {
     id: 'gpt4' as Provider,
-    name: 'GPT-4',
+    name: 'GPT-5.2',
     color: '#10B981',
     bg: '#D1FAE5',
     description: 'OpenAI GPT-4 - Versatile intelligence'
