@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import apiClient from '../../../../api/client';
+import { ModelSelector, type Provider } from './ModelSelector';
 
 interface MotionResult {
   success: boolean;
+  provider?: string;
   motion_type?: string;
   motion?: {
     header?: string;
@@ -35,6 +37,11 @@ interface MotionResult {
   raw_motion?: string;
 }
 
+interface MotionResults {
+  claude?: MotionResult;
+  gemini?: MotionResult;
+}
+
 interface DocumentRef {
   id: number;
   name: string;
@@ -55,6 +62,7 @@ const MOTION_TYPES = [
 
 export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocuments = [] }: MotionDrafterTabProps) => {
   const [selectedMotion, setSelectedMotion] = useState('charter_s8');
+  const [selectedProviders, setSelectedProviders] = useState<Provider[]>(['claude', 'gemini']);
   const [caseDetails, setCaseDetails] = useState({
     client_name: '',
     court_file_no: '',
@@ -65,9 +73,10 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
   });
   const [caseDescription, setCaseDescription] = useState(initialIntent || '');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [result, setResult] = useState<MotionResult | null>(null);
+  const [results, setResults] = useState<MotionResults | null>(null);
   const [showForm, setShowForm] = useState(true);
   const [referenceDocId, setReferenceDocId] = useState<number | null>(null);
+  const [activeResultTab, setActiveResultTab] = useState<Provider>('claude');
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -78,8 +87,10 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
         case_description: caseDescription,
         data_source_id: dataSourceId,
         reference_document_id: referenceDocId,
+        providers: selectedProviders,
       });
-      setResult(response.data.result);
+      setResults(response.data.results);
+      setActiveResultTab(selectedProviders[0]);
       setShowForm(false);
     } catch (error) {
       console.error('Error generating motion:', error);
@@ -89,7 +100,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
   };
 
   const handleReset = () => {
-    setResult(null);
+    setResults(null);
     setShowForm(true);
   };
 
@@ -97,13 +108,23 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
     navigator.clipboard.writeText(text);
   };
 
-  const getFullMotionText = () => {
+  const getFullMotionText = (result: MotionResult | undefined) => {
     if (!result?.motion) return result?.raw_motion || '';
     const m = result.motion;
     return `${m.header || ''}\n\n${m.title || ''}\n\n${m.introduction || ''}\n\nRELIEF SOUGHT:\n${(m.relief_sought || []).map((r, i) => `${i + 1}. ${r}`).join('\n')}\n\nGROUNDS:\n${(m.grounds || []).map((g, i) => `${i + 1}. ${g}`).join('\n')}\n\nFACTUAL BACKGROUND:\n${m.factual_background || ''}\n\nLEGAL ARGUMENT:\n${m.legal_argument?.charter_violation || ''}\n\n${m.conclusion || ''}\n\n${m.signature_block || ''}`;
   };
 
-  if (!showForm && result) {
+  const activeResult = results?.[activeResultTab];
+
+  const PROVIDER_INFO = {
+    claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7' },
+    gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE' },
+  };
+
+  if (!showForm && results) {
+    const hasMultipleResults = results.claude && results.gemini;
+    const result = activeResult;
+
     return (
       <motion.div
         initial={{ opacity: 0 }}
@@ -122,7 +143,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
-              onClick={() => copyToClipboard(getFullMotionText())}
+              onClick={() => copyToClipboard(getFullMotionText(result))}
               style={{
                 padding: '8px 16px',
                 fontSize: '13px',
@@ -133,7 +154,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
                 cursor: 'pointer',
               }}
             >
-              📋 Copy All
+              Copy All
             </button>
             <button
               onClick={handleReset}
@@ -148,13 +169,61 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
                 cursor: 'pointer',
               }}
             >
-              ← Draft Another
+              Draft Another
             </button>
           </div>
         </div>
 
+        {/* Provider Tabs - only show if both providers returned results */}
+        {hasMultipleResults && (
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            marginBottom: '20px',
+            padding: '4px',
+            background: '#f3f4f6',
+            borderRadius: '10px',
+          }}>
+            {(['claude', 'gemini'] as Provider[]).map((provider) => {
+              const info = PROVIDER_INFO[provider];
+              const isActive = activeResultTab === provider;
+              return (
+                <button
+                  key={provider}
+                  onClick={() => setActiveResultTab(provider)}
+                  style={{
+                    flex: 1,
+                    padding: '10px 16px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    background: isActive ? '#fff' : 'transparent',
+                    color: isActive ? info.color : '#6b7280',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <span style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: info.color,
+                  }} />
+                  {info.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Risk Assessment */}
-        {result.risk_assessment && (
+        {result?.risk_assessment && (
           <div style={{
             padding: '16px',
             background: result.risk_assessment.strength === 'strong' ? '#f0fdf4' : result.risk_assessment.strength === 'moderate' ? '#fffbeb' : '#fef2f2',
@@ -163,7 +232,6 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
             borderLeft: `4px solid ${result.risk_assessment.strength === 'strong' ? '#16a34a' : result.risk_assessment.strength === 'moderate' ? '#d97706' : '#dc2626'}`,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span style={{ fontSize: '16px' }}>⚖️</span>
               <span style={{ fontWeight: 600, color: '#111827' }}>Motion Strength: </span>
               <span style={{
                 padding: '2px 10px',
@@ -184,7 +252,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
         )}
 
         {/* Motion Content */}
-        {result.motion ? (
+        {result?.motion ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Court Header */}
             {result.motion.header && (
@@ -316,19 +384,19 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
               </div>
             )}
           </div>
-        ) : result.raw_motion && (
+        ) : result?.raw_motion && (
           <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px' }}>
             <pre style={{ fontFamily: "'Courier New', monospace", fontSize: '13px', whiteSpace: 'pre-wrap', margin: 0, color: '#374151' }}>
-              {result.raw_motion}
+              {result?.raw_motion}
             </pre>
           </div>
         )}
 
         {/* Key Case Law */}
-        {result.key_case_law && result.key_case_law.length > 0 && (
+        {result?.key_case_law && result.key_case_law.length > 0 && (
           <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginTop: '16px' }}>
             <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: '0 0 12px 0' }}>
-              📚 Key Case Law
+              Key Case Law
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {result.key_case_law.map((c, i) => (
@@ -342,10 +410,10 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
         )}
 
         {/* Evidence to Gather */}
-        {result.evidence_to_gather && result.evidence_to_gather.length > 0 && (
+        {result?.evidence_to_gather && result.evidence_to_gather.length > 0 && (
           <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginTop: '16px' }}>
             <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: '0 0 12px 0' }}>
-              🔍 Additional Evidence to Gather
+              Additional Evidence to Gather
             </h4>
             <ul style={{ margin: 0, paddingLeft: '20px' }}>
               {result.evidence_to_gather.map((e, i) => (
@@ -366,7 +434,20 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
     >
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚖️</div>
+        <div style={{
+          width: '56px',
+          height: '56px',
+          margin: '0 auto 12px',
+          background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
+          borderRadius: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+            <path d="M12 3v18M3 12h18M6 6l12 12M18 6L6 18" strokeLinecap="round"/>
+          </svg>
+        </div>
         <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#111827', margin: '0 0 8px 0' }}>
           Legal Motion Drafter
         </h2>
@@ -588,18 +669,28 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
               background: '#f0fdf4',
               borderRadius: '8px',
               border: '1px solid #bbf7d0',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
+              fontSize: '13px',
+              color: '#166534',
             }}>
-              <span style={{ fontSize: '16px' }}>📄</span>
-              <span style={{ fontSize: '13px', color: '#166534' }}>
-                The AI will analyze and reference this document when drafting your motion
-              </span>
+              The AI will analyze and reference this document when drafting your motion
             </div>
           )}
         </div>
       )}
+
+      {/* Model Selector */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginBottom: '20px' }}>
+        <ModelSelector
+          selectedProviders={selectedProviders}
+          onSelectionChange={setSelectedProviders}
+          disabled={isGenerating}
+        />
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px', margin: '8px 0 0 0' }}>
+          {selectedProviders.length === 2 ? 'Generate motions from both models for comparison' :
+           selectedProviders.length === 1 ? `Generate motion using ${selectedProviders[0] === 'claude' ? 'Claude' : 'Gemini'}` :
+           'Select at least one model'}
+        </p>
+      </div>
 
       {/* Generate Button */}
       <button
@@ -631,7 +722,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
             Drafting Motion...
           </span>
         ) : (
-          '⚖️ Generate Motion'
+          'Generate Motion'
         )}
       </button>
 

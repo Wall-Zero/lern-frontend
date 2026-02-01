@@ -90,8 +90,8 @@ export const ExplorePanel = () => {
     }
   };
 
-  const handleRunAIAnalysis = async () => {
-    await fetchDataInsights();
+  const handleRunAIAnalysis = async (providers?: string[]) => {
+    await fetchDataInsights(undefined, providers);
   };
 
   return (
