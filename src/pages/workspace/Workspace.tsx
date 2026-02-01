@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { WorkspaceProvider, useWorkspace } from '../../context/WorkspaceContext';
 import { StageHeader } from '../../components/workspace/StageHeader';
 import { DatasetSidebar } from '../../components/workspace/DatasetSidebar';
@@ -8,8 +8,25 @@ import { usePageTitle } from '../../hooks/usePageTitle';
 
 const WorkspaceInner = () => {
   usePageTitle('Workspace');
-  const { uploadDataset, setStage, selectDataset } = useWorkspace();
+  const { uploadDataset, setStage, selectDataset, state } = useWorkspace();
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect mobile viewport
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close sidebar when dataset is selected on mobile
+  useEffect(() => {
+    if (isMobile && state.activeDataset) {
+      setIsMobileSidebarOpen(false);
+    }
+  }, [state.activeDataset, isMobile]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -55,6 +72,7 @@ const WorkspaceInner = () => {
         background: '#f9fafb',
         fontFamily: "'Outfit', sans-serif",
         position: 'relative',
+        overflow: 'hidden',
       }}
     >
       {isDragOver && (
@@ -85,19 +103,52 @@ const WorkspaceInner = () => {
           </div>
         </div>
       )}
-      <DatasetSidebar />
+
+      {/* Mobile overlay when sidebar is open */}
+      {isMobile && isMobileSidebarOpen && (
+        <div
+          onClick={() => setIsMobileSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 40,
+          }}
+        />
+      )}
+
+      {/* Sidebar - hidden on mobile unless toggled */}
+      <div
+        style={{
+          position: isMobile ? 'fixed' : 'relative',
+          left: isMobile ? (isMobileSidebarOpen ? 0 : '-100%') : 0,
+          top: 0,
+          bottom: 0,
+          zIndex: isMobile ? 50 : 'auto',
+          transition: 'left 0.3s ease',
+          width: isMobile ? '85%' : 'auto',
+          maxWidth: isMobile ? '320px' : 'none',
+        }}
+      >
+        <DatasetSidebar onClose={isMobile ? () => setIsMobileSidebarOpen(false) : undefined} />
+      </div>
+
       <div
         style={{
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
+          width: '100%',
         }}
       >
-        <StageHeader />
+        <StageHeader
+          onMenuClick={isMobile ? () => setIsMobileSidebarOpen(true) : undefined}
+          showMenuButton={isMobile}
+        />
         <WorkspaceContent />
       </div>
-      <MarketplacePanel />
+      {!isMobile && <MarketplacePanel />}
     </div>
   );
 };

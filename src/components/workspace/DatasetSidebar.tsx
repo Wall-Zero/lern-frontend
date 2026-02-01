@@ -23,7 +23,11 @@ const DocumentIcon = () => (
   </svg>
 );
 
-export const DatasetSidebar = () => {
+interface DatasetSidebarProps {
+  onClose?: () => void;
+}
+
+export const DatasetSidebar = ({ onClose }: DatasetSidebarProps) => {
   const { state, selectDataset, uploadDataset, setStage, setWorkspaceMode, toggleCompareDataset, clearCompareDatasets, deleteDataset } = useWorkspace();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -94,18 +98,36 @@ export const DatasetSidebar = () => {
     return currentMode.fileTypes.includes(fileType);
   });
 
+  const handleSelectDataset = (id: number) => {
+    selectDataset(id);
+    onClose?.();
+  };
+
   return (
     <div className="w-72 bg-white border-r border-gray-200 flex flex-col h-full">
       {/* Logo - Back to Dashboard */}
-      <Link
-        to="/dashboard"
-        className="flex items-center gap-3 px-4 py-4 border-b border-gray-200 hover:bg-gray-50 transition-colors"
-      >
-        <img src={logoImage} alt="LERN" className="h-8 w-auto" />
-        <span className="text-lg font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
-          LERN
-        </span>
-      </Link>
+      <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+        >
+          <img src={logoImage} alt="LERN" className="h-8 w-auto" />
+          <span className="text-lg font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-cyan-500 bg-clip-text text-transparent">
+            LERN
+          </span>
+        </Link>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            style={{ marginLeft: 'auto' }}
+          >
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {/* Mode Toggle */}
       <div className="p-3 border-b border-gray-200">
@@ -264,7 +286,7 @@ export const DatasetSidebar = () => {
                       de.dataTransfer.setData('application/x-dataset-id', String(ds.id));
                       de.dataTransfer.effectAllowed = 'copy';
                     }}
-                    onClick={() => selectDataset(ds.id)}
+                    onClick={() => handleSelectDataset(ds.id)}
                     className="flex-1 text-left min-w-0"
                     style={{ cursor: 'grab', background: 'transparent', border: 'none', padding: 0 }}
                   >

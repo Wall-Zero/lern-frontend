@@ -10,7 +10,12 @@ const stages: { key: Stage; label: string; icon: string }[] = [
   { key: 'predict', label: 'Predict', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
 ];
 
-export const StageHeader = () => {
+interface StageHeaderProps {
+  onMenuClick?: () => void;
+  showMenuButton?: boolean;
+}
+
+export const StageHeader = ({ onMenuClick, showMenuButton }: StageHeaderProps) => {
   const { state, setStage } = useWorkspace();
   const currentIndex = stages.findIndex((s) => s.key === state.stage);
 
@@ -109,6 +114,29 @@ export const StageHeader = () => {
       `}</style>
       <div className="stage-header">
         <div className="stage-header-inner">
+          {/* Mobile menu button */}
+          {showMenuButton && (
+            <button
+              onClick={onMenuClick}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#f3f4f6',
+                marginRight: '12px',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              <svg width="20" height="20" fill="none" stroke="#374151" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          )}
           {stages.map((stage, index) => {
             const isActive = stage.key === state.stage;
             const isCompleted = index < currentIndex;

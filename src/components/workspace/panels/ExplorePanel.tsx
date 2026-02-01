@@ -95,13 +95,45 @@ export const ExplorePanel = () => {
   };
 
   return (
-    <div style={{ padding: '24px', fontFamily: "'Outfit', sans-serif", display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="explore-panel">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+        .explore-panel {
+          padding: 16px;
+          font-family: 'Outfit', sans-serif;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+        }
+        @media (min-width: 768px) {
+          .explore-panel {
+            padding: 24px;
+          }
+        }
+
+        .explore-tab-bar {
+          display: flex;
+          border-bottom: 1px solid #e5e7eb;
+          margin-bottom: 16px;
+          flex-shrink: 0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .explore-tab-bar::-webkit-scrollbar {
+          display: none;
+        }
+        @media (min-width: 768px) {
+          .explore-tab-bar {
+            margin-bottom: 20px;
+          }
+        }
+
         .explore-tab-btn {
-          padding: 8px 20px;
-          font-size: 14px;
+          padding: 8px 14px;
+          font-size: 13px;
           font-weight: 500;
           color: #6b7280;
           background: none;
@@ -111,6 +143,13 @@ export const ExplorePanel = () => {
           font-family: 'Outfit', sans-serif;
           transition: all 0.15s;
           white-space: nowrap;
+          flex-shrink: 0;
+        }
+        @media (min-width: 768px) {
+          .explore-tab-btn {
+            padding: 8px 20px;
+            font-size: 14px;
+          }
         }
         .explore-tab-btn:hover {
           color: #111827;
@@ -130,6 +169,7 @@ export const ExplorePanel = () => {
           font-family: 'Outfit', sans-serif;
           outline: none;
           transition: all 0.15s;
+          min-width: 0;
         }
         .explore-insights-input:focus {
           border-color: #0d9488;
@@ -138,34 +178,44 @@ export const ExplorePanel = () => {
         .explore-insights-input::placeholder {
           color: #9ca3af;
         }
+
+        .explore-insights-form {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        @media (min-width: 640px) {
+          .explore-insights-form {
+            flex-direction: row;
+          }
+        }
       `}</style>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
-        <div>
-          <h1 style={{
-            fontSize: '20px',
-            fontWeight: 700,
-            color: '#111827',
-            margin: '0 0 4px 0'
-          }}>{activeDataset.name}</h1>
-          <p style={{
-            fontSize: '13px',
-            color: '#6b7280',
-            margin: 0,
-            fontFamily: "'JetBrains Mono', monospace"
-          }}>
-            {isDocument ? (
-              <>📄 {activeDataset.type.toUpperCase()} Document</>
-            ) : (
-              <>{activeDataset.row_count} rows &middot; {previewColumns.length} columns &middot; {activeDataset.type.toUpperCase()}</>
-            )}
-          </p>
-        </div>
+      <div style={{ marginBottom: '12px', flexShrink: 0 }}>
+        <h1 style={{
+          fontSize: '18px',
+          fontWeight: 700,
+          color: '#111827',
+          margin: '0 0 4px 0',
+          wordBreak: 'break-word',
+        }}>{activeDataset.name}</h1>
+        <p style={{
+          fontSize: '12px',
+          color: '#6b7280',
+          margin: 0,
+          fontFamily: "'JetBrains Mono', monospace"
+        }}>
+          {isDocument ? (
+            <>{activeDataset.type.toUpperCase()} Document</>
+          ) : (
+            <>{activeDataset.row_count} rows · {previewColumns.length} columns · {activeDataset.type.toUpperCase()}</>
+          )}
+        </p>
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: '20px', flexShrink: 0 }}>
+      <div className="explore-tab-bar">
         {TABS.filter((tab) => !tab.compareOnly || hasCompareDatasets).map((tab) => (
           <button
             key={tab.id}
@@ -184,7 +234,7 @@ export const ExplorePanel = () => {
       </div>
 
       {/* Tab content */}
-      <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px' }}>
         {activeTab === 'document' && isDocument && (
           <DocumentAnalysisTab
             analysis={dataInsights?.analyses as any}
@@ -265,37 +315,38 @@ export const ExplorePanel = () => {
             background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
             border: '1px solid #99f6e4',
             borderRadius: '12px',
-            padding: '24px',
+            padding: '16px',
             flexShrink: 0,
           }}
         >
           <h3 style={{
-            fontSize: '18px',
+            fontSize: '16px',
             fontWeight: 600,
             color: '#111827',
-            margin: '0 0 8px 0'
+            margin: '0 0 6px 0'
           }}>Get AI Insights</h3>
           <p style={{
-            fontSize: '14px',
+            fontSize: '13px',
             color: '#6b7280',
-            margin: '0 0 16px 0',
+            margin: '0 0 12px 0',
             lineHeight: 1.5
           }}>
-            Describe what you want to predict or analyze, and AI will suggest the best approach.
+            Describe what you want to predict or analyze.
           </p>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="explore-insights-form">
             <input
               type="text"
               value={intent}
               onChange={(e) => setIntent(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleGetInsights()}
-              placeholder="e.g., I want to predict house prices based on features..."
+              placeholder="e.g., predict house prices..."
               className="explore-insights-input"
             />
             <Button
               onClick={handleGetInsights}
               isLoading={isAnalyzing}
               disabled={!intent.trim() || isAnalyzing}
+              style={{ flexShrink: 0 }}
             >
               Analyze
             </Button>
