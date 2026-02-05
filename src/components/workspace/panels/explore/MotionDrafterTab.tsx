@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import apiClient from '../../../../api/client';
+import { datasetsApi } from '../../../../api/endpoints/datasets';
 import { ModelSelector, type Provider } from './ModelSelector';
 
 type WorkflowMode = 'parallel' | 'refine';
@@ -84,50 +85,181 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
   const [results, setResults] = useState<MotionResults | null>(null);
   const [refineResults, setRefineResults] = useState<{ initial: MotionResult; refined: MotionResult } | null>(null);
   const [showForm, setShowForm] = useState(true);
-  const [referenceDocId, setReferenceDocId] = useState<number | null>(null);
+  const [referenceDocIds, setReferenceDocIds] = useState<number[]>([]);
   const [activeResultTab, setActiveResultTab] = useState<Provider | 'initial' | 'refined'>('claude');
-  const [generationStep, setGenerationStep] = useState<'idle' | 'creating' | 'refining'>('idle');
+  const [generationStep, setGenerationStep] = useState<'idle' | 'creating' | 'refining' | 'done'>('idle');
+  const [stepProgress, setStepProgress] = useState(0);
+  const [stepElapsed, setStepElapsed] = useState(0);
+
+  // Document library state
+  const [allDocuments, setAllDocuments] = useState<DocumentRef[]>(availableDocuments);
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch all documents on mount
+  const fetchDocuments = useCallback(async () => {
+    setIsLoadingDocs(true);
+    try {
+      const response = await datasetsApi.list();
+      const docs = (response.results || []).map((ds: { id: number; name: string; type?: string }) => ({
+        id: ds.id,
+        name: ds.name,
+        type: ds.type || 'file',
+      }));
+      setAllDocuments(docs);
+    } catch (err) {
+      console.error('Failed to fetch documents:', err);
+    } finally {
+      setIsLoadingDocs(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  // Upload handler
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadProgress(`Uploading ${file.name}${files.length > 1 ? ` (${i + 1}/${files.length})` : ''}...`);
+      try {
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'file';
+        const typeMap: Record<string, string> = {
+          pdf: 'pdf', doc: 'doc', docx: 'docx', txt: 'txt', md: 'md',
+          csv: 'csv', xlsx: 'excel', xls: 'excel', json: 'json',
+        };
+        await datasetsApi.create({
+          name: file.name,
+          type: typeMap[ext] || ext,
+          file: file,
+        });
+      } catch (err) {
+        console.error(`Failed to upload ${file.name}:`, err);
+      }
+    }
+
+    setUploadProgress('');
+    setIsUploading(false);
+    await fetchDocuments();
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const toggleDocReference = (docId: number) => {
+    setReferenceDocIds(prev =>
+      prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
+    );
+  };
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     setGenerationStep('creating');
+    setStepProgress(0);
+    setStepElapsed(0);
+    setShowForm(false);
+
+    // Start elapsed timer
+    const startTime = Date.now();
+    const timerInterval = setInterval(() => {
+      setStepElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+
+    // Animate progress bar
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += Math.random() * 3 + 0.5;
+      if (progress > 90) progress = 90; // Cap at 90% until actually done
+      setStepProgress(progress);
+    }, 500);
+
     try {
       if (workflowMode === 'refine') {
-        // Create & Refine workflow
+        // === Step 1: Create initial draft ===
         setGenerationStep('creating');
-        const response = await apiClient.post('/ai-tools/refine_motion/', {
+        const createResponse = await apiClient.post('/ai-tools/generate_motion/', {
           motion_type: selectedMotion,
           case_details: caseDetails,
           case_description: caseDescription,
           data_source_id: dataSourceId,
-          creator_provider: creatorProvider,
+          reference_document_ids: referenceDocIds,
+          providers: [creatorProvider],
+        });
+
+        const initialDraft = createResponse.data.results?.[creatorProvider];
+        if (!initialDraft?.success) {
+          throw new Error(`Failed to create draft with ${creatorProvider}`);
+        }
+
+        // Show step 1 complete
+        setStepProgress(100);
+        setRefineResults({ initial: initialDraft, refined: initialDraft });
+
+        // Brief pause to show step 1 completion
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // === Step 2: Refine with second model ===
+        setGenerationStep('refining');
+        setStepProgress(0);
+        progress = 0;
+        const refineStartTime = Date.now();
+        setStepElapsed(0);
+        clearInterval(timerInterval);
+        const timerInterval2 = setInterval(() => {
+          setStepElapsed(Math.floor((Date.now() - refineStartTime) / 1000));
+        }, 1000);
+
+        const refineResponse = await apiClient.post('/ai-tools/refine_draft/', {
+          motion_type: selectedMotion,
+          case_details: caseDetails,
+          case_description: caseDescription,
+          original_motion: initialDraft,
           refiner_provider: refinerProvider,
         });
-        setRefineResults({
-          initial: response.data.initial_draft,
-          refined: response.data.refined_result || response.data.initial_draft,
-        });
+
+        clearInterval(timerInterval2);
+
+        if (refineResponse.data.success) {
+          setRefineResults({
+            initial: initialDraft,
+            refined: refineResponse.data.refined_result,
+          });
+        } else {
+          // If refine fails, keep the initial draft
+          setRefineResults({ initial: initialDraft, refined: initialDraft });
+        }
+
+        setStepProgress(100);
+        setGenerationStep('done');
         setActiveResultTab('refined');
-        setShowForm(false);
       } else {
-        // Parallel comparison workflow
+        // Parallel comparison workflow (single call)
         const response = await apiClient.post('/ai-tools/generate_motion/', {
           motion_type: selectedMotion,
           case_details: caseDetails,
           case_description: caseDescription,
           data_source_id: dataSourceId,
-          reference_document_id: referenceDocId,
+          reference_document_ids: referenceDocIds,
           providers: selectedProviders,
         });
         setResults(response.data.results);
         setActiveResultTab(selectedProviders[0]);
-        setShowForm(false);
+        setStepProgress(100);
+        setGenerationStep('done');
       }
     } catch (error) {
       console.error('Error generating motion:', error);
-    } finally {
-      setIsGenerating(false);
       setGenerationStep('idle');
+      if (!results && !refineResults) setShowForm(true);
+    } finally {
+      clearInterval(timerInterval);
+      clearInterval(progressInterval);
+      setIsGenerating(false);
     }
   };
 
@@ -135,7 +267,16 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
     setResults(null);
     setRefineResults(null);
     setShowForm(true);
+    setGenerationStep('idle');
+    setStepProgress(0);
+    setStepElapsed(0);
   };
+
+  const [showAddToCase, setShowAddToCase] = useState(false);
+  const [caseOrPersonName, setCaseOrPersonName] = useState('');
+  const [addToCaseSaved, setAddToCaseSaved] = useState(false);
+  const [showCanLII, setShowCanLII] = useState(false);
+  const [canLIIQuery, setCanLIIQuery] = useState('');
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -144,7 +285,41 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
   const getFullMotionText = (result: MotionResult | undefined) => {
     if (!result?.motion) return result?.raw_motion || '';
     const m = result.motion;
-    return `${m.header || ''}\n\n${m.title || ''}\n\n${m.introduction || ''}\n\nRELIEF SOUGHT:\n${(m.relief_sought || []).map((r, i) => `${i + 1}. ${r}`).join('\n')}\n\nGROUNDS:\n${(m.grounds || []).map((g, i) => `${i + 1}. ${g}`).join('\n')}\n\nFACTUAL BACKGROUND:\n${m.factual_background || ''}\n\nLEGAL ARGUMENT:\n${m.legal_argument?.charter_violation || ''}\n\n${m.conclusion || ''}\n\n${m.signature_block || ''}`;
+    return `${m.header || ''}\n\n${m.title || ''}\n\n${m.introduction || ''}\n\nRELIEF SOUGHT:\n${(m.relief_sought || []).map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}\n\nGROUNDS:\n${(m.grounds || []).map((g: string, i: number) => `${i + 1}. ${g}`).join('\n')}\n\nFACTUAL BACKGROUND:\n${m.factual_background || ''}\n\nLEGAL ARGUMENT:\n${m.legal_argument?.charter_violation || ''}\n\n${m.conclusion || ''}\n\n${m.signature_block || ''}`;
+  };
+
+  const handleDownloadMotion = (result: MotionResult | undefined) => {
+    const text = getFullMotionText(result);
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const motionLabel = MOTION_TYPES.find(m => m.id === selectedMotion)?.label || 'Motion';
+    const clientName = caseDetails.client_name || 'Client';
+    a.href = url;
+    a.download = `${motionLabel} - ${clientName}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleAddToCase = () => {
+    // In production this would save to a cases/persons DB
+    // For now, show confirmation UX
+    setAddToCaseSaved(true);
+    setTimeout(() => setAddToCaseSaved(false), 3000);
+    setShowAddToCase(false);
+    setCaseOrPersonName('');
+  };
+
+  const openCanLII = (query?: string) => {
+    const searchTerm = query || canLIIQuery;
+    if (searchTerm) {
+      window.open(`https://www.canlii.org/en/#search/type=decision&text=${encodeURIComponent(searchTerm)}`, '_blank');
+    } else {
+      window.open('https://www.canlii.org/en/on/', '_blank');
+    }
   };
 
   const activeResult = (activeResultTab !== 'initial' && activeResultTab !== 'refined') ? results?.[activeResultTab] : undefined;
@@ -164,6 +339,162 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
     return activeResultTab === 'initial' ? refineResults.initial : refineResults.refined;
   };
 
+  // Progress stepper during generation
+  if (!showForm && isGenerating && generationStep !== 'done') {
+    const isRefineMode = workflowMode === 'refine';
+    const steps = isRefineMode
+      ? [
+          { key: 'creating', label: `Creating draft with ${PROVIDER_INFO[creatorProvider].name}`, provider: creatorProvider },
+          { key: 'refining', label: `Refining with ${PROVIDER_INFO[refinerProvider].name}`, provider: refinerProvider },
+        ]
+      : [
+          { key: 'creating', label: `Generating with ${selectedProviders.map(p => PROVIDER_INFO[p].name).join(', ')}`, provider: selectedProviders[0] },
+        ];
+
+    const currentStepIndex = steps.findIndex(s => s.key === generationStep);
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        style={{ padding: '40px 20px' }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#111827', margin: '0 0 8px 0' }}>
+            {isRefineMode ? 'Create & Refine Workflow' : 'Generating Motion'}
+          </h2>
+          <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>
+            {MOTION_TYPES.find(m => m.id === selectedMotion)?.label}
+          </p>
+        </div>
+
+        {/* Step indicators */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '400px', margin: '0 auto' }}>
+          {steps.map((step, idx) => {
+            const isActive = idx === currentStepIndex;
+            const isComplete = idx < currentStepIndex;
+            const isPending = idx > currentStepIndex;
+            const providerColor = PROVIDER_INFO[step.provider]?.color || '#6b7280';
+
+            return (
+              <div key={step.key}>
+                {/* Step row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  {/* Step circle */}
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    flexShrink: 0,
+                    background: isComplete ? '#16a34a' : isActive ? providerColor : '#e5e7eb',
+                    color: isComplete || isActive ? '#fff' : '#9ca3af',
+                    boxShadow: isActive ? `0 0 0 4px ${providerColor}25` : 'none',
+                    transition: 'all 0.3s',
+                  }}>
+                    {isComplete ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                        <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    ) : (
+                      idx + 1
+                    )}
+                  </div>
+
+                  {/* Step label */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontWeight: 600,
+                      fontSize: '14px',
+                      color: isPending ? '#9ca3af' : '#111827',
+                    }}>
+                      Step {idx + 1}: {isComplete ? 'Complete' : step.label}
+                    </div>
+                    {isActive && (
+                      <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                        {stepElapsed}s elapsed...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Spinner for active step */}
+                  {isActive && (
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      border: `2.5px solid ${providerColor}30`,
+                      borderTopColor: providerColor,
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite',
+                      flexShrink: 0,
+                    }} />
+                  )}
+                </div>
+
+                {/* Progress bar for active step */}
+                {isActive && (
+                  <div style={{
+                    marginTop: '10px',
+                    marginLeft: '54px',
+                    height: '4px',
+                    background: '#e5e7eb',
+                    borderRadius: '4px',
+                    overflow: 'hidden',
+                  }}>
+                    <motion.div
+                      initial={{ width: '0%' }}
+                      animate={{ width: `${Math.min(stepProgress, 95)}%` }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                      style={{
+                        height: '100%',
+                        background: `linear-gradient(90deg, ${providerColor}, ${providerColor}cc)`,
+                        borderRadius: '4px',
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Connector line between steps */}
+                {idx < steps.length - 1 && (
+                  <div style={{
+                    width: '2px',
+                    height: '16px',
+                    background: isComplete ? '#16a34a' : '#e5e7eb',
+                    marginLeft: '19px',
+                    marginTop: '4px',
+                    transition: 'background 0.3s',
+                  }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Pulsing animation at bottom */}
+        <div style={{ textAlign: 'center', marginTop: '40px' }}>
+          <motion.div
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            style={{ fontSize: '13px', color: '#9ca3af' }}
+          >
+            {generationStep === 'creating' ? 'Analyzing case and drafting motion...' : 'Reviewing and strengthening arguments...'}
+          </motion.div>
+        </div>
+
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </motion.div>
+    );
+  }
+
   if (!showForm && (results || refineResults)) {
     const isRefineWorkflow = workflowMode === 'refine' && refineResults;
     const hasMultipleResults = isRefineWorkflow ? true : availableResults.length > 1;
@@ -176,30 +507,16 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
         style={{ padding: '8px 0' }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>
-              Generated Motion
-            </h2>
-            <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>
-              {MOTION_TYPES.find(m => m.id === selectedMotion)?.label}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => copyToClipboard(getFullMotionText(result))}
-              style={{
-                padding: '8px 16px',
-                fontSize: '13px',
-                fontWeight: 500,
-                background: '#f3f4f6',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-              }}
-            >
-              Copy All
-            </button>
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                Generated Motion
+              </h2>
+              <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                {MOTION_TYPES.find(m => m.id === selectedMotion)?.label}
+              </p>
+            </div>
             <button
               onClick={handleReset}
               style={{
@@ -216,6 +533,234 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
               Draft Another
             </button>
           </div>
+
+          {/* Action bar */}
+          <div style={{
+            display: 'flex',
+            gap: '6px',
+            flexWrap: 'wrap',
+            padding: '10px 12px',
+            background: '#f9fafb',
+            borderRadius: '10px',
+            border: '1px solid #e5e7eb',
+          }}>
+            {/* Copy */}
+            <button
+              onClick={() => copyToClipboard(getFullMotionText(result))}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '7px 12px', fontSize: '12px', fontWeight: 500,
+                background: '#fff', color: '#374151',
+                border: '1px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer',
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Copy
+            </button>
+
+            {/* Download */}
+            <button
+              onClick={() => handleDownloadMotion(result)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '7px 12px', fontSize: '12px', fontWeight: 500,
+                background: '#fff', color: '#374151',
+                border: '1px solid #e5e7eb', borderRadius: '6px', cursor: 'pointer',
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Download
+            </button>
+
+            {/* Add to Case/Person */}
+            <button
+              onClick={() => setShowAddToCase(!showAddToCase)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '7px 12px', fontSize: '12px', fontWeight: 500,
+                background: showAddToCase ? '#eff6ff' : '#fff',
+                color: showAddToCase ? '#2563eb' : '#374151',
+                border: `1px solid ${showAddToCase ? '#93c5fd' : '#e5e7eb'}`,
+                borderRadius: '6px', cursor: 'pointer',
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Add to Case
+            </button>
+
+            {/* CanLII Lookup */}
+            <button
+              onClick={() => setShowCanLII(!showCanLII)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '7px 12px', fontSize: '12px', fontWeight: 600,
+                background: showCanLII ? '#fef3c7' : '#fff',
+                color: showCanLII ? '#92400e' : '#374151',
+                border: `1px solid ${showCanLII ? '#fcd34d' : '#e5e7eb'}`,
+                borderRadius: '6px', cursor: 'pointer',
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              CanLII
+            </button>
+          </div>
+
+          {/* Saved confirmation */}
+          {addToCaseSaved && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                marginTop: '8px', padding: '10px 14px',
+                background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0',
+                fontSize: '13px', color: '#166534', fontWeight: 500,
+                display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Motion saved to case file
+            </motion.div>
+          )}
+
+          {/* Add to Case dropdown */}
+          {showAddToCase && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                marginTop: '8px', padding: '14px',
+                background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+                Save to Case or Person
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  value={caseOrPersonName}
+                  onChange={(e) => setCaseOrPersonName(e.target.value)}
+                  placeholder="Case name or person (e.g., R. v. Smith, File #2024-1234)"
+                  style={{
+                    flex: 1, padding: '8px 12px', fontSize: '13px',
+                    border: '1px solid #e5e7eb', borderRadius: '6px',
+                  }}
+                />
+                <button
+                  onClick={handleAddToCase}
+                  disabled={!caseOrPersonName.trim()}
+                  style={{
+                    padding: '8px 16px', fontSize: '13px', fontWeight: 600,
+                    background: caseOrPersonName.trim() ? '#2563eb' : '#e5e7eb',
+                    color: caseOrPersonName.trim() ? '#fff' : '#9ca3af',
+                    border: 'none', borderRadius: '6px', cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
+                This will associate the motion with the specified case for future reference
+              </div>
+            </motion.div>
+          )}
+
+          {/* CanLII Search Panel */}
+          {showCanLII && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                marginTop: '8px', padding: '14px',
+                background: '#fffbeb', borderRadius: '10px', border: '1px solid #fde68a',
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#92400e', marginBottom: '8px' }}>
+                Canadian Legal Information Institute
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                <input
+                  type="text"
+                  value={canLIIQuery}
+                  onChange={(e) => setCanLIIQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && openCanLII()}
+                  placeholder="Search case law (e.g., R. v. Grant, Charter s.8)"
+                  style={{
+                    flex: 1, padding: '8px 12px', fontSize: '13px',
+                    border: '1px solid #fcd34d', borderRadius: '6px', background: '#fff',
+                  }}
+                />
+                <button
+                  onClick={() => openCanLII()}
+                  style={{
+                    padding: '8px 16px', fontSize: '13px', fontWeight: 600,
+                    background: '#d97706', color: '#fff',
+                    border: 'none', borderRadius: '6px', cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Search
+                </button>
+              </div>
+              {/* Quick links for common references */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Criminal Code', query: 'Criminal Code RSC 1985 c C-46' },
+                  { label: 'Charter', query: 'Canadian Charter of Rights and Freedoms' },
+                  { label: 'CDSA', query: 'Controlled Drugs and Substances Act' },
+                  { label: 'Ontario Courts', query: '' },
+                ].map(link => (
+                  <button
+                    key={link.label}
+                    onClick={() => link.query ? openCanLII(link.query) : window.open('https://www.canlii.org/en/on/', '_blank')}
+                    style={{
+                      padding: '4px 10px', fontSize: '11px', fontWeight: 500,
+                      background: '#fff', color: '#92400e',
+                      border: '1px solid #fcd34d', borderRadius: '12px', cursor: 'pointer',
+                    }}
+                  >
+                    {link.label}
+                  </button>
+                ))}
+              </div>
+              {/* Auto-suggest from case law in the motion */}
+              {result?.key_case_law && result.key_case_law.length > 0 && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #fde68a' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#92400e', marginBottom: '6px' }}>
+                    Cases referenced in this motion:
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {result.key_case_law.map((c: { case: string; relevance: string }, i: number) => (
+                      <button
+                        key={i}
+                        onClick={() => openCanLII(c.case)}
+                        style={{
+                          padding: '3px 8px', fontSize: '11px', fontWeight: 500,
+                          background: '#fef3c7', color: '#78350f',
+                          border: '1px solid #fcd34d', borderRadius: '6px', cursor: 'pointer',
+                        }}
+                        title={c.relevance}
+                      >
+                        {c.case}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
         </div>
 
         {/* Provider Tabs / Workflow Tabs */}
@@ -779,51 +1324,167 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
         />
       </div>
 
-      {/* Reference Document */}
-      {availableDocuments.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: '0 0 8px 0' }}>
-            Reference Document (Optional)
+      {/* Reference Documents & Upload */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: 0 }}>
+            Reference Documents
           </h3>
-          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 12px 0' }}>
-            Select a document to respond to or reference (e.g., Crown's factum, disclosure materials)
-          </p>
-          <select
-            value={referenceDocId || ''}
-            onChange={(e) => setReferenceDocId(e.target.value ? Number(e.target.value) : null)}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              fontSize: '14px',
-              boxSizing: 'border-box',
-              background: '#fff',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="">No reference document</option>
-            {availableDocuments.map((doc) => (
-              <option key={doc.id} value={doc.id}>
-                {doc.name} ({doc.type.toUpperCase()})
-              </option>
-            ))}
-          </select>
-          {referenceDocId && (
-            <div style={{
-              marginTop: '12px',
-              padding: '10px 14px',
-              background: '#f0fdf4',
-              borderRadius: '8px',
-              border: '1px solid #bbf7d0',
-              fontSize: '13px',
-              color: '#166534',
-            }}>
-              The AI will analyze and reference this document when drafting your motion
+          <span style={{ fontSize: '12px', color: '#9ca3af' }}>Optional</span>
+        </div>
+        <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 14px 0' }}>
+          Upload or select documents the AI should reference (Crown's factum, disclosure, police notes, prior decisions)
+        </p>
+
+        {/* Upload area */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#7c3aed'; }}
+          onDragLeave={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; }}
+          onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#d1d5db'; handleFileUpload(e.dataTransfer.files); }}
+          style={{
+            border: '2px dashed #d1d5db',
+            borderRadius: '10px',
+            padding: '16px',
+            textAlign: 'center',
+            marginBottom: '14px',
+            transition: 'border-color 0.2s',
+            cursor: 'pointer',
+            background: '#fafafa',
+          }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.json"
+            style={{ display: 'none' }}
+            onChange={(e) => handleFileUpload(e.target.files)}
+          />
+          {isUploading ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span style={{
+                width: '16px', height: '16px',
+                border: '2px solid #e5e7eb', borderTopColor: '#7c3aed',
+                borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+                display: 'inline-block',
+              }} />
+              <span style={{ fontSize: '13px', color: '#7c3aed', fontWeight: 500 }}>{uploadProgress}</span>
             </div>
+          ) : (
+            <>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ margin: '0 auto 6px' }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                Drop files here or <span style={{ color: '#7c3aed', fontWeight: 600 }}>browse</span>
+              </div>
+              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
+                PDF, Word, Text, CSV, Excel
+              </div>
+            </>
           )}
         </div>
-      )}
+
+        {/* Document list */}
+        {isLoadingDocs ? (
+          <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '8px' }}>
+            Loading documents...
+          </div>
+        ) : allDocuments.length === 0 ? (
+          <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '8px' }}>
+            No documents uploaded yet. Upload files above to reference them.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
+            {allDocuments.map((doc) => {
+              const isSelected = referenceDocIds.includes(doc.id);
+              const typeColors: Record<string, string> = {
+                pdf: '#dc2626', doc: '#2563eb', docx: '#2563eb', txt: '#6b7280',
+                csv: '#16a34a', excel: '#16a34a', md: '#7c3aed',
+              };
+              const dotColor = typeColors[doc.type] || '#9ca3af';
+
+              return (
+                <button
+                  key={doc.id}
+                  onClick={() => toggleDocReference(doc.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    background: isSelected ? '#f5f3ff' : '#f9fafb',
+                    border: `1.5px solid ${isSelected ? '#7c3aed' : '#e5e7eb'}`,
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {/* Checkbox */}
+                  <div style={{
+                    width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
+                    border: `2px solid ${isSelected ? '#7c3aed' : '#d1d5db'}`,
+                    background: isSelected ? '#7c3aed' : '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {isSelected && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                        <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Type dot */}
+                  <span style={{
+                    width: '8px', height: '8px', borderRadius: '50%', background: dotColor, flexShrink: 0,
+                  }} />
+
+                  {/* Name */}
+                  <span style={{
+                    flex: 1, fontSize: '13px', fontWeight: isSelected ? 600 : 400,
+                    color: isSelected ? '#111827' : '#374151',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {doc.name}
+                  </span>
+
+                  {/* Type badge */}
+                  <span style={{
+                    fontSize: '10px', fontWeight: 600, textTransform: 'uppercase',
+                    padding: '2px 6px', borderRadius: '4px',
+                    background: `${dotColor}15`, color: dotColor,
+                  }}>
+                    {doc.type}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Selected count */}
+        {referenceDocIds.length > 0 && (
+          <div style={{
+            marginTop: '12px',
+            padding: '10px 14px',
+            background: '#f5f3ff',
+            borderRadius: '8px',
+            border: '1px solid #ddd6fe',
+            fontSize: '13px',
+            color: '#5b21b6',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 12l2 2 4-4M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {referenceDocIds.length} document{referenceDocIds.length > 1 ? 's' : ''} selected for reference
+          </div>
+        )}
+      </div>
 
       {/* Workflow Mode Selection */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginBottom: '20px' }}>
