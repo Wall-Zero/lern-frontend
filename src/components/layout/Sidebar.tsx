@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -7,57 +8,70 @@ const HomeIcon = () => (
   </svg>
 );
 
-const DatabaseIcon = () => (
-  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-  </svg>
-);
-
-const ChartIcon = () => (
-  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  </svg>
-);
-
-const TargetIcon = () => (
-  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-  </svg>
-);
-
-const ShoppingIcon = () => (
-  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-  </svg>
-);
-
 const LogoutIcon = () => (
   <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
   </svg>
 );
 
-const WorkspaceIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+const ScaleIcon = () => (
+  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
   </svg>
 );
 
-const navItems = [
-  { path: '/workspace', icon: WorkspaceIcon, label: 'Workspace' },
+const DataChartIcon = () => (
+  <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  </svg>
+);
+
+const ChevronIcon = ({ direction }: { direction: 'left' | 'right' }) => (
+  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    {direction === 'left' ? (
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+    ) : (
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    )}
+  </svg>
+);
+
+type NavItem = {
+  path: string;
+  icon: React.FC;
+  label: string;
+  activeGradient?: string;
+  activeHoverGradient?: string;
+};
+
+const navItems: NavItem[] = [
   { path: '/dashboard', icon: HomeIcon, label: 'Dashboard' },
-  { path: '/datasets', icon: DatabaseIcon, label: 'Datasets' },
-  { path: '/analysis', icon: ChartIcon, label: 'Analysis' },
-  { path: '/predictions', icon: TargetIcon, label: 'Predictions' },
-  { path: '/marketplace', icon: ShoppingIcon, label: 'Marketplace' },
+  {
+    path: '/legal',
+    icon: ScaleIcon,
+    label: 'Legal',
+    activeGradient: 'linear-gradient(135deg, #4b5563 0%, #6b7280 100%)',
+    activeHoverGradient: 'linear-gradient(135deg, #374151 0%, #4b5563 100%)',
+  },
+  {
+    path: '/data',
+    icon: DataChartIcon,
+    label: 'Data',
+    activeGradient: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+    activeHoverGradient: 'linear-gradient(135deg, #0f766e 0%, #115e59 100%)',
+  },
 ];
 
 export const Sidebar = () => {
   const { user, logout } = useAuth();
+  const [collapsed, setCollapsed] = useState(true);
+
+  const width = collapsed ? '68px' : '260px';
 
   return (
     <div style={{
-      width: '260px',
+      width,
+      minWidth: width,
       minHeight: '100vh',
       background: '#fff',
       borderRight: '1px solid #e5e7eb',
@@ -66,7 +80,9 @@ export const Sidebar = () => {
       position: 'sticky',
       top: 0,
       height: '100vh',
-      fontFamily: '"Outfit", sans-serif'
+      fontFamily: '"Outfit", sans-serif',
+      transition: 'width 0.2s ease, min-width 0.2s ease',
+      overflow: 'hidden',
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
@@ -82,6 +98,7 @@ export const Sidebar = () => {
           font-weight: 500;
           font-size: 15px;
           transition: all 0.15s ease;
+          white-space: nowrap;
         }
         .nav-link:hover {
           background: #f3f4f6;
@@ -110,18 +127,43 @@ export const Sidebar = () => {
           font-weight: 500;
           cursor: pointer;
           transition: all 0.15s ease;
+          white-space: nowrap;
+          overflow: hidden;
         }
         .logout-btn:hover {
           background: #f9fafb;
           border-color: #d1d5db;
           color: #111827;
         }
+        .collapse-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          background: #fff;
+          color: #9ca3af;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          flex-shrink: 0;
+        }
+        .collapse-btn:hover {
+          background: #f3f4f6;
+          color: #111827;
+          border-color: #d1d5db;
+        }
       `}</style>
 
       {/* Logo */}
       <div style={{
-        padding: '24px 20px',
-        borderBottom: '1px solid #f3f4f6'
+        padding: collapsed ? '24px 16px' : '24px 20px',
+        borderBottom: '1px solid #f3f4f6',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: collapsed ? 'center' : 'space-between',
+        gap: '8px',
       }}>
         <NavLink
           to="/dashboard"
@@ -130,7 +172,8 @@ export const Sidebar = () => {
             alignItems: 'center',
             gap: '12px',
             textDecoration: 'none',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            minWidth: 0,
           }}
         >
           <div style={{
@@ -140,7 +183,8 @@ export const Sidebar = () => {
             borderRadius: '10px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            flexShrink: 0,
           }}>
             <span style={{
               color: '#fff',
@@ -148,18 +192,34 @@ export const Sidebar = () => {
               fontWeight: 700
             }}>L</span>
           </div>
-          <span style={{
-            fontSize: '22px',
-            fontWeight: 700,
-            color: '#111827'
-          }}>LERN</span>
+          {!collapsed && (
+            <span style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              color: '#111827'
+            }}>LERN</span>
+          )}
         </NavLink>
+        {!collapsed && (
+          <button className="collapse-btn" onClick={() => setCollapsed(true)} title="Collapse sidebar">
+            <ChevronIcon direction="left" />
+          </button>
+        )}
       </div>
+
+      {/* Expand button when collapsed */}
+      {collapsed && (
+        <div style={{ padding: '12px 0', display: 'flex', justifyContent: 'center' }}>
+          <button className="collapse-btn" onClick={() => setCollapsed(false)} title="Expand sidebar">
+            <ChevronIcon direction="right" />
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav style={{
         flex: 1,
-        padding: '16px 12px',
+        padding: collapsed ? '8px' : '16px 12px',
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
@@ -170,66 +230,114 @@ export const Sidebar = () => {
             key={item.path}
             to={item.path}
             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            style={({ isActive }) => ({
+              ...(isActive && item.activeGradient ? { background: item.activeGradient } : {}),
+              ...(collapsed ? { justifyContent: 'center', padding: '12px', gap: '0' } : {}),
+            })}
+            title={collapsed ? item.label : undefined}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget;
+              if (el.classList.contains('active') && item.activeHoverGradient) {
+                el.style.background = item.activeHoverGradient;
+              }
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget;
+              if (el.classList.contains('active') && item.activeGradient) {
+                el.style.background = item.activeGradient;
+              }
+            }}
           >
             <item.icon />
-            {item.label}
+            {!collapsed && item.label}
           </NavLink>
         ))}
       </nav>
 
       {/* User section */}
       <div style={{
-        padding: '16px',
+        padding: collapsed ? '12px 8px' : '16px',
         borderTop: '1px solid #f3f4f6'
       }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '12px',
-          padding: '8px',
-          background: '#f9fafb',
-          borderRadius: '10px'
-        }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #0d9488, #0f766e)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: '15px',
-            fontWeight: 600,
-            flexShrink: 0
-          }}>
-            {user?.username?.charAt(0).toUpperCase() || 'U'}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{
-              fontSize: '14px',
+        {collapsed ? (
+          /* Collapsed: just avatar + logout icon */
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontSize: '15px',
               fontWeight: 600,
-              color: '#111827',
-              margin: 0,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}>{user?.username}</p>
-            <p style={{
-              fontSize: '12px',
-              color: '#6b7280',
-              margin: 0,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}>{user?.email}</p>
+            }}>
+              {user?.username?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <button
+              onClick={logout}
+              className="collapse-btn"
+              title="Log out"
+              style={{ color: '#6b7280' }}
+            >
+              <LogoutIcon />
+            </button>
           </div>
-        </div>
-        <button onClick={logout} className="logout-btn">
-          <LogoutIcon />
-          Log out
-        </button>
+        ) : (
+          /* Expanded: full user info */
+          <>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '12px',
+              padding: '8px',
+              background: '#f9fafb',
+              borderRadius: '10px'
+            }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #0d9488, #0f766e)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 600,
+                flexShrink: 0
+              }}>
+                {user?.username?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#111827',
+                  margin: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>{user?.username}</p>
+                <p style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  margin: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>{user?.email}</p>
+              </div>
+            </div>
+            <button onClick={logout} className="logout-btn">
+              <LogoutIcon />
+              Log out
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

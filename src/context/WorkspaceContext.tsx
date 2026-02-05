@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { Stage, WorkspaceMode, WorkspaceState, WorkspaceContextType, QuickTrainConfig, MergeFredConfig, DatasetMetadata } from '../types/workspace.types';
+import type { Stage, WorkspaceState, WorkspaceContextType, QuickTrainConfig, MergeFredConfig, DatasetMetadata } from '../types/workspace.types';
 import type { DataInsightsResponse, MultiDatasetInsightsResponse } from '../types/dataset.types';
 import { datasetsApi } from '../api/endpoints/datasets';
 import { workspaceApi } from '../api/endpoints/workspace';
@@ -28,8 +28,12 @@ const initialState: WorkspaceState = {
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
-export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = useState<WorkspaceState>(initialState);
+export const WorkspaceProvider = ({ children, initialTool, initialMode }: { children: ReactNode; initialTool?: string | null; initialMode?: 'legal' | 'data' | null }) => {
+  const [state, setState] = useState<WorkspaceState>({
+    ...initialState,
+    workspaceMode: initialMode || initialState.workspaceMode,
+  });
+  const [pendingTool, setPendingTool] = useState<string | null>(initialTool || null);
 
   const refreshDatasets = useCallback(async () => {
     try {
@@ -193,10 +197,6 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     setState((prev) => ({ ...prev, stage }));
   }, []);
 
-  const setWorkspaceMode = useCallback((mode: WorkspaceMode) => {
-    setState((prev) => ({ ...prev, workspaceMode: mode }));
-  }, []);
-
   const setUserIntent = useCallback((intent: string) => {
     setState((prev) => ({ ...prev, userIntent: intent }));
   }, []);
@@ -276,6 +276,10 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, []);
 
+  const clearPendingTool = useCallback(() => {
+    setPendingTool(null);
+  }, []);
+
   const deleteDataset = useCallback(async (id: number) => {
     try {
       setState((prev) => ({ ...prev, isProcessing: true }));
@@ -334,7 +338,6 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         mergeFred,
         fetchDataInsights,
         setStage,
-        setWorkspaceMode,
         setUserIntent,
         toggleMarketplace,
         refreshDatasets,
@@ -343,6 +346,8 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
         clearCompareDatasets,
         fetchMultiDatasetInsights,
         deleteDataset,
+        pendingTool,
+        clearPendingTool,
       }}
     >
       {children}

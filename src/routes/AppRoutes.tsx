@@ -14,6 +14,8 @@ import { Marketplace } from '../pages/marketplace/Marketplace';
 import { PollingProvider } from '../context/PollingContext';
 import Landing from '../pages/landing/Landing';
 import { Workspace } from '../pages/workspace/Workspace';
+import { LegalWorkspace } from '../pages/workspace/LegalWorkspace';
+import { DataWorkspace } from '../pages/workspace/DataWorkspace';
 
 export const AppRoutes = () => {
   return (
@@ -101,6 +103,28 @@ export const AppRoutes = () => {
           }
         />
         
+        <Route
+          path="/legal"
+          element={
+            <PrivateRoute>
+              <AppLayout hideSidebar>
+                <LegalWorkspace />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/data"
+          element={
+            <PrivateRoute>
+              <AppLayout hideSidebar>
+                <DataWorkspace />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
+
         <Route
           path="/workspace"
           element={

@@ -99,7 +99,6 @@ export interface WorkspaceContextType {
   mergeFred: (config: MergeFredConfig) => Promise<void>;
   fetchDataInsights: (intent?: string, providers?: string[]) => Promise<void>;
   setStage: (stage: Stage) => void;
-  setWorkspaceMode: (mode: WorkspaceMode) => void;
   setUserIntent: (intent: string) => void;
   toggleMarketplace: () => void;
   refreshDatasets: () => Promise<void>;
@@ -110,4 +109,7 @@ export interface WorkspaceContextType {
   fetchMultiDatasetInsights: (intent?: string, providers?: string[]) => Promise<void>;
   // Delete
   deleteDataset: (id: number) => Promise<void>;
+  // URL-driven tool selection
+  pendingTool: string | null;
+  clearPendingTool: () => void;
 }

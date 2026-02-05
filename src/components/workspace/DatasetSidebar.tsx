@@ -28,7 +28,7 @@ interface DatasetSidebarProps {
 }
 
 export const DatasetSidebar = ({ onClose }: DatasetSidebarProps) => {
-  const { state, selectDataset, uploadDataset, setStage, setWorkspaceMode, toggleCompareDataset, clearCompareDatasets, deleteDataset } = useWorkspace();
+  const { state, selectDataset, uploadDataset, setStage, toggleCompareDataset, clearCompareDatasets, deleteDataset } = useWorkspace();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [hoveredDatasetId, setHoveredDatasetId] = useState<number | null>(null);
@@ -41,9 +41,9 @@ export const DatasetSidebar = ({ onClose }: DatasetSidebarProps) => {
     legal: {
       label: 'Legal',
       icon: <ScaleIcon />,
-      color: '#7c3aed',
-      bgGradient: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-      lightBg: '#f5f3ff',
+      color: '#4b5563',
+      bgGradient: 'linear-gradient(135deg, #4b5563 0%, #6b7280 100%)',
+      lightBg: '#f3f4f6',
       accept: '.pdf,.doc,.docx,.txt,.md',
       fileTypes: ['pdf', 'doc', 'docx', 'txt', 'md', 'text'],
       description: 'Legal Documents',
@@ -129,37 +129,20 @@ export const DatasetSidebar = ({ onClose }: DatasetSidebarProps) => {
         )}
       </div>
 
-      {/* Mode Toggle */}
-      <div className="p-3 border-b border-gray-200">
-        <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
-          <button
-            onClick={() => setWorkspaceMode('legal')}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg transition-all"
-            style={{
-              background: mode === 'legal' ? modeConfig.legal.bgGradient : 'transparent',
-              color: mode === 'legal' ? '#fff' : '#6b7280',
-              fontWeight: mode === 'legal' ? 600 : 500,
-              fontSize: '13px',
-              boxShadow: mode === 'legal' ? '0 2px 8px rgba(124, 58, 237, 0.3)' : 'none',
-            }}
-          >
-            <ScaleIcon />
-            Legal
-          </button>
-          <button
-            onClick={() => setWorkspaceMode('data')}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg transition-all"
-            style={{
-              background: mode === 'data' ? modeConfig.data.bgGradient : 'transparent',
-              color: mode === 'data' ? '#fff' : '#6b7280',
-              fontWeight: mode === 'data' ? 600 : 500,
-              fontSize: '13px',
-              boxShadow: mode === 'data' ? '0 2px 8px rgba(13, 148, 136, 0.3)' : 'none',
-            }}
-          >
-            <DataIcon />
-            Data
-          </button>
+      {/* Mode Indicator */}
+      <div className="px-4 py-3 border-b border-gray-200">
+        <div
+          className="flex items-center gap-2 py-2 px-3 rounded-lg"
+          style={{
+            background: currentMode.bgGradient,
+            color: '#fff',
+            fontWeight: 600,
+            fontSize: '13px',
+            boxShadow: mode === 'legal' ? '0 2px 8px rgba(75, 85, 99, 0.3)' : '0 2px 8px rgba(13, 148, 136, 0.3)',
+          }}
+        >
+          {mode === 'legal' ? <ScaleIcon /> : <DataIcon />}
+          {currentMode.description}
         </div>
       </div>
 

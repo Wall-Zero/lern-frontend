@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import apiClient from '../../../../api/client';
 import { ModelSelector, type Provider } from './ModelSelector';
 
+type WorkflowMode = 'parallel' | 'refine';
+
 interface MotionResult {
   success: boolean;
   provider?: string;
@@ -35,6 +37,8 @@ interface MotionResult {
     explanation?: string;
   };
   raw_motion?: string;
+  refinement_notes?: string;
+  improvements_made?: string[];
 }
 
 interface MotionResults {
@@ -63,7 +67,10 @@ const MOTION_TYPES = [
 
 export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocuments = [] }: MotionDrafterTabProps) => {
   const [selectedMotion, setSelectedMotion] = useState('charter_s8');
+  const [workflowMode, setWorkflowMode] = useState<WorkflowMode>('parallel');
   const [selectedProviders, setSelectedProviders] = useState<Provider[]>(['claude', 'gemini', 'gpt4']);
+  const [creatorProvider, setCreatorProvider] = useState<Provider>('gemini');
+  const [refinerProvider, setRefinerProvider] = useState<Provider>('claude');
   const [caseDetails, setCaseDetails] = useState({
     client_name: '',
     court_file_no: '',
@@ -75,33 +82,58 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
   const [caseDescription, setCaseDescription] = useState(initialIntent || '');
   const [isGenerating, setIsGenerating] = useState(false);
   const [results, setResults] = useState<MotionResults | null>(null);
+  const [refineResults, setRefineResults] = useState<{ initial: MotionResult; refined: MotionResult } | null>(null);
   const [showForm, setShowForm] = useState(true);
   const [referenceDocId, setReferenceDocId] = useState<number | null>(null);
-  const [activeResultTab, setActiveResultTab] = useState<Provider>('claude');
+  const [activeResultTab, setActiveResultTab] = useState<Provider | 'initial' | 'refined'>('claude');
+  const [generationStep, setGenerationStep] = useState<'idle' | 'creating' | 'refining'>('idle');
 
   const handleGenerate = async () => {
     setIsGenerating(true);
+    setGenerationStep('creating');
     try {
-      const response = await apiClient.post('/ai-tools/generate_motion/', {
-        motion_type: selectedMotion,
-        case_details: caseDetails,
-        case_description: caseDescription,
-        data_source_id: dataSourceId,
-        reference_document_id: referenceDocId,
-        providers: selectedProviders,
-      });
-      setResults(response.data.results);
-      setActiveResultTab(selectedProviders[0]);
-      setShowForm(false);
+      if (workflowMode === 'refine') {
+        // Create & Refine workflow
+        setGenerationStep('creating');
+        const response = await apiClient.post('/ai-tools/refine_motion/', {
+          motion_type: selectedMotion,
+          case_details: caseDetails,
+          case_description: caseDescription,
+          data_source_id: dataSourceId,
+          creator_provider: creatorProvider,
+          refiner_provider: refinerProvider,
+        });
+        setRefineResults({
+          initial: response.data.initial_draft,
+          refined: response.data.refined_result || response.data.initial_draft,
+        });
+        setActiveResultTab('refined');
+        setShowForm(false);
+      } else {
+        // Parallel comparison workflow
+        const response = await apiClient.post('/ai-tools/generate_motion/', {
+          motion_type: selectedMotion,
+          case_details: caseDetails,
+          case_description: caseDescription,
+          data_source_id: dataSourceId,
+          reference_document_id: referenceDocId,
+          providers: selectedProviders,
+        });
+        setResults(response.data.results);
+        setActiveResultTab(selectedProviders[0]);
+        setShowForm(false);
+      }
     } catch (error) {
       console.error('Error generating motion:', error);
     } finally {
       setIsGenerating(false);
+      setGenerationStep('idle');
     }
   };
 
   const handleReset = () => {
     setResults(null);
+    setRefineResults(null);
     setShowForm(true);
   };
 
@@ -115,7 +147,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
     return `${m.header || ''}\n\n${m.title || ''}\n\n${m.introduction || ''}\n\nRELIEF SOUGHT:\n${(m.relief_sought || []).map((r, i) => `${i + 1}. ${r}`).join('\n')}\n\nGROUNDS:\n${(m.grounds || []).map((g, i) => `${i + 1}. ${g}`).join('\n')}\n\nFACTUAL BACKGROUND:\n${m.factual_background || ''}\n\nLEGAL ARGUMENT:\n${m.legal_argument?.charter_violation || ''}\n\n${m.conclusion || ''}\n\n${m.signature_block || ''}`;
   };
 
-  const activeResult = results?.[activeResultTab];
+  const activeResult = (activeResultTab !== 'initial' && activeResultTab !== 'refined') ? results?.[activeResultTab] : undefined;
 
   const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string }> = {
     claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7' },
@@ -126,9 +158,16 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
   // Get providers that have results
   const availableResults = (['claude', 'gemini', 'gpt4'] as Provider[]).filter(p => results?.[p]);
 
-  if (!showForm && results) {
-    const hasMultipleResults = availableResults.length > 1;
-    const result = activeResult;
+  // For refine workflow, get the active result
+  const getRefineResult = (): MotionResult | undefined => {
+    if (!refineResults) return undefined;
+    return activeResultTab === 'initial' ? refineResults.initial : refineResults.refined;
+  };
+
+  if (!showForm && (results || refineResults)) {
+    const isRefineWorkflow = workflowMode === 'refine' && refineResults;
+    const hasMultipleResults = isRefineWorkflow ? true : availableResults.length > 1;
+    const result = isRefineWorkflow ? getRefineResult() : activeResult;
 
     return (
       <motion.div
@@ -179,7 +218,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
           </div>
         </div>
 
-        {/* Provider Tabs - only show if multiple providers returned results */}
+        {/* Provider Tabs / Workflow Tabs */}
         {hasMultipleResults && (
           <div style={{
             display: 'flex',
@@ -189,20 +228,18 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
             background: '#f3f4f6',
             borderRadius: '10px',
           }}>
-            {availableResults.map((provider) => {
-              const info = PROVIDER_INFO[provider];
-              const isActive = activeResultTab === provider;
-              return (
+            {isRefineWorkflow ? (
+              // Create & Refine workflow tabs
+              <>
                 <button
-                  key={provider}
-                  onClick={() => setActiveResultTab(provider)}
+                  onClick={() => setActiveResultTab('initial')}
                   style={{
                     flex: 1,
                     padding: '10px 16px',
                     fontSize: '14px',
                     fontWeight: 600,
-                    background: isActive ? '#fff' : 'transparent',
-                    color: isActive ? info.color : '#6b7280',
+                    background: activeResultTab === 'initial' ? '#fff' : 'transparent',
+                    color: activeResultTab === 'initial' ? PROVIDER_INFO[creatorProvider].color : '#6b7280',
                     border: 'none',
                     borderRadius: '8px',
                     cursor: 'pointer',
@@ -210,7 +247,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
-                    boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    boxShadow: activeResultTab === 'initial' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                     transition: 'all 0.15s',
                   }}
                 >
@@ -218,12 +255,117 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
                     width: '10px',
                     height: '10px',
                     borderRadius: '50%',
-                    background: info.color,
+                    background: PROVIDER_INFO[creatorProvider].color,
                   }} />
-                  {info.name}
+                  Initial ({PROVIDER_INFO[creatorProvider].name})
                 </button>
-              );
-            })}
+                <button
+                  onClick={() => setActiveResultTab('refined')}
+                  style={{
+                    flex: 1,
+                    padding: '10px 16px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    background: activeResultTab === 'refined' ? '#fff' : 'transparent',
+                    color: activeResultTab === 'refined' ? PROVIDER_INFO[refinerProvider].color : '#6b7280',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: activeResultTab === 'refined' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <span style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: PROVIDER_INFO[refinerProvider].color,
+                  }} />
+                  Refined ({PROVIDER_INFO[refinerProvider].name})
+                </button>
+              </>
+            ) : (
+              // Parallel comparison tabs
+              availableResults.map((provider) => {
+                const info = PROVIDER_INFO[provider];
+                const isActive = activeResultTab === provider;
+                return (
+                  <button
+                    key={provider}
+                    onClick={() => setActiveResultTab(provider)}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      background: isActive ? '#fff' : 'transparent',
+                      color: isActive ? info.color : '#6b7280',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <span style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      background: info.color,
+                    }} />
+                    {info.name}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Refinement Notes - show for refined result */}
+        {isRefineWorkflow && activeResultTab === 'refined' && refineResults?.refined?.refinement_notes && (
+          <div style={{
+            padding: '12px 16px',
+            background: '#f0fdf4',
+            borderRadius: '10px',
+            marginBottom: '16px',
+            border: '1px solid #bbf7d0',
+          }}>
+            <div style={{ fontWeight: 600, fontSize: '13px', color: '#166534', marginBottom: '4px' }}>
+              Refinement Notes
+            </div>
+            <p style={{ fontSize: '13px', color: '#15803d', margin: 0, lineHeight: 1.5 }}>
+              {refineResults.refined.refinement_notes}
+            </p>
+          </div>
+        )}
+
+        {/* Improvements Made - show for refined result */}
+        {isRefineWorkflow && activeResultTab === 'refined' && refineResults?.refined?.improvements_made && (
+          <div style={{
+            padding: '12px 16px',
+            background: '#eff6ff',
+            borderRadius: '10px',
+            marginBottom: '16px',
+            border: '1px solid #bfdbfe',
+          }}>
+            <div style={{ fontWeight: 600, fontSize: '13px', color: '#1e40af', marginBottom: '8px' }}>
+              Improvements Made
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '18px' }}>
+              {refineResults.refined.improvements_made.map((improvement: string, i: number) => (
+                <li key={i} style={{ fontSize: '13px', color: '#1d4ed8', marginBottom: '4px' }}>
+                  {improvement}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -285,7 +427,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
                   RELIEF SOUGHT
                 </h4>
                 <ol style={{ margin: 0, paddingLeft: '20px' }}>
-                  {result.motion.relief_sought.map((item, i) => (
+                  {result.motion.relief_sought.map((item: string, i: number) => (
                     <li key={i} style={{ fontSize: '14px', color: '#374151', lineHeight: 1.6, marginBottom: '8px' }}>
                       {item}
                     </li>
@@ -301,7 +443,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
                   GROUNDS
                 </h4>
                 <ol style={{ margin: 0, paddingLeft: '20px' }}>
-                  {result.motion.grounds.map((item, i) => (
+                  {result.motion.grounds.map((item: string, i: number) => (
                     <li key={i} style={{ fontSize: '14px', color: '#374151', lineHeight: 1.6, marginBottom: '8px' }}>
                       {item}
                     </li>
@@ -404,7 +546,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
               Key Case Law
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {result.key_case_law.map((c, i) => (
+              {result.key_case_law.map((c: { case: string; relevance: string }, i: number) => (
                 <div key={i} style={{ padding: '10px', background: '#f9fafb', borderRadius: '8px' }}>
                   <div style={{ fontWeight: 600, fontSize: '13px', color: '#7c3aed' }}>{c.case}</div>
                   <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{c.relevance}</div>
@@ -421,7 +563,7 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
               Additional Evidence to Gather
             </h4>
             <ul style={{ margin: 0, paddingLeft: '20px' }}>
-              {result.evidence_to_gather.map((e, i) => (
+              {result.evidence_to_gather.map((e: string, i: number) => (
                 <li key={i} style={{ fontSize: '13px', color: '#374151', marginBottom: '6px' }}>{e}</li>
               ))}
             </ul>
@@ -683,24 +825,142 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
         </div>
       )}
 
-      {/* Model Selector */}
+      {/* Workflow Mode Selection */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginBottom: '20px' }}>
-        <ModelSelector
-          selectedProviders={selectedProviders}
-          onSelectionChange={setSelectedProviders}
-          disabled={isGenerating}
-        />
-        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px', margin: '8px 0 0 0' }}>
-          {selectedProviders.length === 2 ? 'Generate motions from both models for comparison' :
-           selectedProviders.length === 1 ? `Generate motion using ${selectedProviders[0] === 'claude' ? 'Claude' : 'Gemini'}` :
-           'Select at least one model'}
-        </p>
+        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: '0 0 12px 0' }}>
+          Generation Mode
+        </h3>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => setWorkflowMode('parallel')}
+            disabled={isGenerating}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              background: workflowMode === 'parallel' ? '#f0fdf4' : '#fff',
+              border: `2px solid ${workflowMode === 'parallel' ? '#16a34a' : '#e5e7eb'}`,
+              borderRadius: '10px',
+              cursor: isGenerating ? 'not-allowed' : 'pointer',
+              textAlign: 'left',
+              opacity: isGenerating ? 0.6 : 1,
+            }}
+          >
+            <div style={{ fontWeight: 600, color: '#111827', fontSize: '14px' }}>Compare Models</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Generate with multiple AIs side-by-side</div>
+          </button>
+          <button
+            onClick={() => setWorkflowMode('refine')}
+            disabled={isGenerating}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              background: workflowMode === 'refine' ? '#eff6ff' : '#fff',
+              border: `2px solid ${workflowMode === 'refine' ? '#2563eb' : '#e5e7eb'}`,
+              borderRadius: '10px',
+              cursor: isGenerating ? 'not-allowed' : 'pointer',
+              textAlign: 'left',
+              opacity: isGenerating ? 0.6 : 1,
+            }}
+          >
+            <div style={{ fontWeight: 600, color: '#111827', fontSize: '14px' }}>Create and Refine</div>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Draft with one AI, refine with another</div>
+          </button>
+        </div>
+      </div>
+
+      {/* Model Selection - changes based on workflow mode */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb', padding: '20px', marginBottom: '20px' }}>
+        {workflowMode === 'parallel' ? (
+          <>
+            <ModelSelector
+              selectedProviders={selectedProviders}
+              onSelectionChange={setSelectedProviders}
+              disabled={isGenerating}
+            />
+            <p style={{ fontSize: '12px', color: '#6b7280', margin: '8px 0 0 0' }}>
+              {selectedProviders.length >= 2 ? `Generate motions from ${selectedProviders.length} models for comparison` :
+               selectedProviders.length === 1 ? `Generate motion using ${PROVIDER_INFO[selectedProviders[0]]?.name}` :
+               'Select at least one model'}
+            </p>
+          </>
+        ) : (
+          <>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: '0 0 12px 0' }}>
+              Select AI Models
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: '12px', alignItems: 'center' }}>
+              {/* Creator Model */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#6b7280', marginBottom: '6px' }}>
+                  Create Draft With
+                </label>
+                <select
+                  value={creatorProvider}
+                  onChange={(e) => setCreatorProvider(e.target.value as Provider)}
+                  disabled={isGenerating}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `2px solid ${PROVIDER_INFO[creatorProvider].color}`,
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    background: PROVIDER_INFO[creatorProvider].bg,
+                    cursor: isGenerating ? 'not-allowed' : 'pointer',
+                    color: '#111827',
+                  }}
+                >
+                  <option value="claude">Claude</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="gpt4">GPT-5.2</option>
+                </select>
+              </div>
+
+              {/* Arrow */}
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', paddingTop: '20px' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+
+              {/* Refiner Model */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#6b7280', marginBottom: '6px' }}>
+                  Refine With
+                </label>
+                <select
+                  value={refinerProvider}
+                  onChange={(e) => setRefinerProvider(e.target.value as Provider)}
+                  disabled={isGenerating}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: `2px solid ${PROVIDER_INFO[refinerProvider].color}`,
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    background: PROVIDER_INFO[refinerProvider].bg,
+                    cursor: isGenerating ? 'not-allowed' : 'pointer',
+                    color: '#111827',
+                  }}
+                >
+                  <option value="claude">Claude</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="gpt4">GPT-5.2</option>
+                </select>
+              </div>
+            </div>
+            <p style={{ fontSize: '12px', color: '#6b7280', margin: '12px 0 0 0' }}>
+              {PROVIDER_INFO[creatorProvider].name} will create the initial draft, then {PROVIDER_INFO[refinerProvider].name} will review and strengthen it
+            </p>
+          </>
+        )}
       </div>
 
       {/* Generate Button */}
       <button
         onClick={handleGenerate}
-        disabled={isGenerating || (!caseDescription.trim() && !caseDetails.client_name)}
+        disabled={isGenerating || (!caseDescription.trim() && !caseDetails.client_name) || (workflowMode === 'parallel' && selectedProviders.length === 0)}
         style={{
           width: '100%',
           padding: '14px 24px',
@@ -724,8 +984,12 @@ export const MotionDrafterTab = ({ dataSourceId, initialIntent, availableDocumen
               borderRadius: '50%',
               animation: 'spin 1s linear infinite',
             }} />
-            Drafting Motion...
+            {generationStep === 'creating' ? `Creating draft with ${PROVIDER_INFO[creatorProvider].name}...` :
+             generationStep === 'refining' ? `Refining with ${PROVIDER_INFO[refinerProvider].name}...` :
+             'Drafting Motion...'}
           </span>
+        ) : workflowMode === 'refine' ? (
+          `Create with ${PROVIDER_INFO[creatorProvider].name} and Refine with ${PROVIDER_INFO[refinerProvider].name}`
         ) : (
           'Generate Motion'
         )}

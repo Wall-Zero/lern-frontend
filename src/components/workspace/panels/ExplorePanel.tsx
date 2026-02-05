@@ -29,7 +29,7 @@ const MOTION_KEYWORDS = ['motion', 'draft', 'write', 'compose', 'prepare', 'crea
 const ANALYSIS_KEYWORDS = ['analyze', 'review', 'examine', 'check', 'identify', 'find'];
 
 export const ExplorePanel = () => {
-  const { state, toggleMarketplace, runAnalysis, fetchDataInsights, fetchMultiDatasetInsights } = useWorkspace();
+  const { state, toggleMarketplace, runAnalysis, fetchDataInsights, fetchMultiDatasetInsights, pendingTool, clearPendingTool } = useWorkspace();
   const { activeDataset, previewData, previewColumns, metadata, dataInsights, compareDatasets, compareMetadata, comparePreviewData, multiDatasetInsights, userIntent, datasets } = state;
   const hasCompareDatasets = compareDatasets.length > 0;
   const isDocument = activeDataset ? DOCUMENT_TYPES.includes(activeDataset.type?.toLowerCase()) : false;
@@ -59,6 +59,21 @@ export const ExplorePanel = () => {
       setActiveTab('document');
     }
   }, [userIntent, isDocument, activeDataset?.id]);
+
+  // Auto-select tab from URL params (e.g., ?tool=motion)
+  useEffect(() => {
+    if (!pendingTool) return;
+    const toolToTab: Record<string, TabId> = {
+      motion: 'motion',
+      analysis: 'document',
+      compare: 'compare',
+    };
+    const tab = toolToTab[pendingTool];
+    if (tab) {
+      setActiveTab(tab);
+    }
+    clearPendingTool();
+  }, [pendingTool, clearPendingTool]);
 
   if (!activeDataset) {
     return (

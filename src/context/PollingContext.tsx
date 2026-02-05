@@ -43,7 +43,7 @@ export const PollingProvider = ({ children }: { children: React.ReactNode }) => 
     const interval = setInterval(async () => {
       try {
         const response = await aitoolsApi.list();
-        const updatedTools = response.results;
+        const updatedTools = response.results || [];
 
         // Check for status changes using ref to avoid stale closure
         updatedTools.forEach((updatedTool) => {
@@ -83,8 +83,9 @@ export const PollingProvider = ({ children }: { children: React.ReactNode }) => 
   const refreshTools = async () => {
     try {
       const response = await aitoolsApi.list();
-      setTools(response.results);
-      previousToolsRef.current = response.results;
+      const results = response.results || [];
+      setTools(results);
+      previousToolsRef.current = results;
     } catch (error) {
       console.error('Failed to load tools:', error);
     }

@@ -31,7 +31,7 @@ export const LoginForm = () => {
     setApiError('');
     try {
       await login(data.email, data.password);
-      navigate('/datasets');
+      navigate('/dashboard');
     } catch (error: any) {
       setApiError(error.response?.data?.message || 'Login failed');
     } finally {
