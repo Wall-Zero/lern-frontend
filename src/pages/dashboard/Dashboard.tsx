@@ -35,7 +35,7 @@ interface Message {
 }
 
 // Motion types
-type MotionProvider = 'claude' | 'gemini' | 'gpt4';
+type MotionProvider = 'claude' | 'gemini' | 'gpt4' | 'lern-2.1' | 'lern-1.9';
 type MotionWorkflow = 'parallel' | 'refine';
 
 interface MotionMessage {
@@ -91,6 +91,8 @@ const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string }>
   claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7' },
   gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE' },
   gpt4: { name: 'GPT-5.2', color: '#10B981', bg: '#D1FAE5' },
+  'lern-2.1': { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
+  'lern-1.9': { name: 'LERN 1.9.1', color: '#6d28d9', bg: '#ede9fe' },
 };
 
 const detectFutureDates = (text: string): string[] => {
@@ -325,6 +327,13 @@ export const Dashboard = () => {
     }
   };
 
+  // Map orchestrator/LERN values to real backend providers
+  const toBackendProvider = (p: MotionProvider): string => {
+    if (p === 'lern-2.1') return 'gemini';   // LERN 2.1 Beta → routes through Gemini
+    if (p === 'lern-1.9') return 'claude';    // LERN 1.9.1 Stable → routes through Claude
+    return p;
+  };
+
   const handleMotionReady = async (
     intakeResult: { case_details: Record<string, string>; case_description: string; motion_type: string },
     conv: MotionMessage[],
@@ -343,6 +352,9 @@ export const Dashboard = () => {
       setMotionProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 3 + 0.5);
     }, 500);
 
+    const backendCreator = toBackendProvider(creatorProvider);
+    const backendRefiner = toBackendProvider(refinerProvider);
+
     try {
       if (motionWorkflow === 'refine') {
         // Step 1: Generate with creator
@@ -351,9 +363,9 @@ export const Dashboard = () => {
           case_details: intakeResult.case_details,
           case_description: intakeResult.case_description,
           reference_document_ids: motionSelectedDocs,
-          providers: [creatorProvider],
+          providers: [backendCreator],
         });
-        const initialDraft = createRes.data.results?.[creatorProvider];
+        const initialDraft = createRes.data.results?.[backendCreator];
         if (!initialDraft?.success) throw new Error('Draft generation failed');
 
         setMotionProgress(100);
@@ -368,7 +380,7 @@ export const Dashboard = () => {
           case_details: intakeResult.case_details,
           case_description: intakeResult.case_description,
           original_motion: initialDraft,
-          refiner_provider: refinerProvider,
+          refiner_provider: backendRefiner,
         });
 
         if (refineRes.data.success) {
@@ -385,9 +397,9 @@ export const Dashboard = () => {
           case_details: intakeResult.case_details,
           case_description: intakeResult.case_description,
           reference_document_ids: motionSelectedDocs,
-          providers: [creatorProvider],
+          providers: [backendCreator],
         });
-        const result = res.data.results?.[creatorProvider];
+        const result = res.data.results?.[backendCreator];
         if (result?.success) {
           setMotionResult(result);
         }
@@ -1567,24 +1579,36 @@ Please provide an improved, refined response that addresses the user's feedback 
                         {motionWorkflow === 'refine' ? 'Creator' : 'Provider'}
                       </label>
                       <select value={creatorProvider} onChange={(e) => setCreatorProvider(e.target.value as MotionProvider)} style={{
-                        width: '100%', padding: '7px 10px', border: `1.5px solid ${PROVIDER_INFO[creatorProvider].color}40`,
-                        borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[creatorProvider].bg, cursor: 'pointer',
+                        width: '100%', padding: '7px 10px', border: `1.5px solid ${(PROVIDER_INFO[creatorProvider]?.color || '#7c3aed')}40`,
+                        borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[creatorProvider]?.bg || '#f3e8ff', cursor: 'pointer',
                       }}>
-                        <option value="claude">Claude</option>
-                        <option value="gemini">Gemini</option>
-                        <option value="gpt4">GPT-5.2</option>
+                        <optgroup label="Models">
+                          <option value="claude">Claude</option>
+                          <option value="gemini">Gemini</option>
+                          <option value="gpt4">GPT-5.2</option>
+                        </optgroup>
+                        <optgroup label="Orchestrator">
+                          <option value="lern-2.1">LERN 2.1 Beta</option>
+                          <option value="lern-1.9">LERN 1.9.1 Stable</option>
+                        </optgroup>
                       </select>
                     </div>
                     {motionWorkflow === 'refine' && (
                       <div>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6b7280', marginBottom: '4px' }}>Refiner</label>
                         <select value={refinerProvider} onChange={(e) => setRefinerProvider(e.target.value as MotionProvider)} style={{
-                          width: '100%', padding: '7px 10px', border: `1.5px solid ${PROVIDER_INFO[refinerProvider].color}40`,
-                          borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[refinerProvider].bg, cursor: 'pointer',
+                          width: '100%', padding: '7px 10px', border: `1.5px solid ${(PROVIDER_INFO[refinerProvider]?.color || '#7c3aed')}40`,
+                          borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[refinerProvider]?.bg || '#f3e8ff', cursor: 'pointer',
                         }}>
-                          <option value="claude">Claude</option>
-                          <option value="gemini">Gemini</option>
-                          <option value="gpt4">GPT-5.2</option>
+                          <optgroup label="Models">
+                            <option value="claude">Claude</option>
+                            <option value="gemini">Gemini</option>
+                            <option value="gpt4">GPT-5.2</option>
+                          </optgroup>
+                          <optgroup label="Orchestrator">
+                            <option value="lern-2.1">LERN 2.1 Beta</option>
+                            <option value="lern-1.9">LERN 1.9.1 Stable</option>
+                          </optgroup>
                         </select>
                       </div>
                     )}
