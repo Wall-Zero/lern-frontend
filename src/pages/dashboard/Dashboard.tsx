@@ -166,6 +166,7 @@ export const Dashboard = () => {
   const [motionWorkflow, setMotionWorkflow] = useState<MotionWorkflow>('refine');
   const [creatorProvider, setCreatorProvider] = useState<MotionProvider>('gemini');
   const [refinerProvider, setRefinerProvider] = useState<MotionProvider>('claude');
+  const [orchestrator, setOrchestrator] = useState<'lern-2.1' | 'lern-1.9'>('lern-2.1');
   const [motionGenerating, setMotionGenerating] = useState(false);
   const [motionGenStep, setMotionGenStep] = useState<'idle' | 'creating' | 'refining' | 'done'>('idle');
   const [motionProgress, setMotionProgress] = useState(0);
@@ -1579,39 +1580,37 @@ Please provide an improved, refined response that addresses the user's feedback 
                         {motionWorkflow === 'refine' ? 'Creator' : 'Provider'}
                       </label>
                       <select value={creatorProvider} onChange={(e) => setCreatorProvider(e.target.value as MotionProvider)} style={{
-                        width: '100%', padding: '7px 10px', border: `1.5px solid ${(PROVIDER_INFO[creatorProvider]?.color || '#7c3aed')}40`,
-                        borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[creatorProvider]?.bg || '#f3e8ff', cursor: 'pointer',
+                        width: '100%', padding: '7px 10px', border: `1.5px solid ${(PROVIDER_INFO[creatorProvider]?.color || '#6b7280')}40`,
+                        borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[creatorProvider]?.bg || '#f3f4f6', cursor: 'pointer',
                       }}>
-                        <optgroup label="Models">
-                          <option value="claude">Claude</option>
-                          <option value="gemini">Gemini</option>
-                          <option value="gpt4">GPT-5.2</option>
-                        </optgroup>
-                        <optgroup label="Orchestrator">
-                          <option value="lern-2.1">LERN 2.1 Beta</option>
-                          <option value="lern-1.9">LERN 1.9.1 Stable</option>
-                        </optgroup>
+                        <option value="claude">Claude</option>
+                        <option value="gemini">Gemini</option>
+                        <option value="gpt4">GPT-5.2</option>
                       </select>
                     </div>
                     {motionWorkflow === 'refine' && (
                       <div>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6b7280', marginBottom: '4px' }}>Refiner</label>
                         <select value={refinerProvider} onChange={(e) => setRefinerProvider(e.target.value as MotionProvider)} style={{
-                          width: '100%', padding: '7px 10px', border: `1.5px solid ${(PROVIDER_INFO[refinerProvider]?.color || '#7c3aed')}40`,
-                          borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[refinerProvider]?.bg || '#f3e8ff', cursor: 'pointer',
+                          width: '100%', padding: '7px 10px', border: `1.5px solid ${(PROVIDER_INFO[refinerProvider]?.color || '#6b7280')}40`,
+                          borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[refinerProvider]?.bg || '#f3f4f6', cursor: 'pointer',
                         }}>
-                          <optgroup label="Models">
-                            <option value="claude">Claude</option>
-                            <option value="gemini">Gemini</option>
-                            <option value="gpt4">GPT-5.2</option>
-                          </optgroup>
-                          <optgroup label="Orchestrator">
-                            <option value="lern-2.1">LERN 2.1 Beta</option>
-                            <option value="lern-1.9">LERN 1.9.1 Stable</option>
-                          </optgroup>
+                          <option value="claude">Claude</option>
+                          <option value="gemini">Gemini</option>
+                          <option value="gpt4">GPT-5.2</option>
                         </select>
                       </div>
                     )}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6b7280', marginBottom: '4px' }}>Orchestrator</label>
+                      <select value={orchestrator} onChange={(e) => setOrchestrator(e.target.value as 'lern-2.1' | 'lern-1.9')} style={{
+                        width: '100%', padding: '7px 10px', border: `1.5px solid ${PROVIDER_INFO[orchestrator]?.color || '#7c3aed'}40`,
+                        borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[orchestrator]?.bg || '#f3e8ff', cursor: 'pointer',
+                      }}>
+                        <option value="lern-2.1">LERN 2.1 Beta</option>
+                        <option value="lern-1.9">LERN 1.9.1 Stable</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
