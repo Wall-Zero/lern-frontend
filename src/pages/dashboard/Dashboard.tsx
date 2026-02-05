@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { datasetsApi } from '../../api/endpoints/datasets';
-import { generateStream } from '../../api/endpoints/aitools';
+import { generateStream, motionIntake } from '../../api/endpoints/aitools';
+import apiClient from '../../api/client';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
@@ -32,6 +33,65 @@ interface Message {
   role: MessageRole;
   content: string;
 }
+
+// Motion types
+type MotionProvider = 'claude' | 'gemini' | 'gpt4';
+type MotionWorkflow = 'parallel' | 'refine';
+
+interface MotionMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface MotionResult {
+  success: boolean;
+  provider?: string;
+  motion_type?: string;
+  motion?: {
+    header?: string;
+    title?: string;
+    introduction?: string;
+    relief_sought?: string[];
+    grounds?: string[];
+    factual_background?: string;
+    legal_argument?: {
+      charter_violation?: string;
+      grant_analysis?: {
+        seriousness_of_breach?: string;
+        impact_on_accused?: string;
+        society_interest?: string;
+      };
+      case_law?: string[];
+    };
+    conclusion?: string;
+    signature_block?: string;
+  };
+  supporting_arguments?: string[];
+  potential_crown_responses?: string[];
+  key_case_law?: Array<{ case: string; relevance: string }>;
+  evidence_to_gather?: string[];
+  risk_assessment?: { strength?: string; explanation?: string };
+  raw_motion?: string;
+  refinement_notes?: string;
+  improvements_made?: string[];
+}
+
+const MOTION_KEYWORDS = ['motion', 'draft', 'charter', 's.8', 's.24', 'exclusion',
+  'disclosure', 'stay of proceedings', 'factum', 'brief'];
+const isMotionIntent = (text: string) =>
+  MOTION_KEYWORDS.some(kw => text.toLowerCase().includes(kw));
+
+const MOTION_TYPES = [
+  { id: 'charter_s8', label: 'Charter s.8 - Illegal Search & Seizure' },
+  { id: 'disclosure', label: 'Disclosure Application' },
+  { id: 'stay_of_proceedings', label: 'Stay of Proceedings' },
+];
+
+const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string }> = {
+  claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7' },
+  gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE' },
+  gpt4: { name: 'GPT-5.2', color: '#10B981', bg: '#D1FAE5' },
+};
 
 const detectFutureDates = (text: string): string[] => {
   const patterns = [
@@ -95,6 +155,32 @@ export const Dashboard = () => {
   const [streamingText, setStreamingText] = useState('');
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Motion mode state
+  const [motionMode, setMotionMode] = useState(false);
+  const [motionConversation, setMotionConversation] = useState<MotionMessage[]>([]);
+  const [motionInput, setMotionInput] = useState('');
+  const [motionLoading, setMotionLoading] = useState(false);
+  const [motionType, setMotionType] = useState('charter_s8');
+  const [motionWorkflow, setMotionWorkflow] = useState<MotionWorkflow>('refine');
+  const [creatorProvider, setCreatorProvider] = useState<MotionProvider>('gemini');
+  const [refinerProvider, setRefinerProvider] = useState<MotionProvider>('claude');
+  const [motionGenerating, setMotionGenerating] = useState(false);
+  const [motionGenStep, setMotionGenStep] = useState<'idle' | 'creating' | 'refining' | 'done'>('idle');
+  const [motionProgress, setMotionProgress] = useState(0);
+  const [motionResult, setMotionResult] = useState<MotionResult | null>(null);
+  const [motionRefineResult, setMotionRefineResult] = useState<{ initial: MotionResult; refined: MotionResult } | null>(null);
+  const [motionActiveTab, setMotionActiveTab] = useState<string>('refined');
+  const motionInputRef = useRef<HTMLInputElement>(null);
+  const motionEndRef = useRef<HTMLDivElement>(null);
+  // Motion sidebar state
+  const [motionDocs, setMotionDocs] = useState<Array<{ id: number; name: string; type: string }>>([]);
+  const [motionSelectedDocs, setMotionSelectedDocs] = useState<number[]>([]);
+  const [canLIIQuery, setCanLIIQuery] = useState('');
+  const [showAddToCase, setShowAddToCase] = useState(false);
+  const [caseOrPersonName, setCaseOrPersonName] = useState('');
+  const [addToCaseSaved, setAddToCaseSaved] = useState(false);
+  const motionFileInputRef = useRef<HTMLInputElement>(null);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -154,10 +240,248 @@ export const Dashboard = () => {
     setStreamingText('');
   }, []);
 
+  // Auto-scroll motion conversation
+  useEffect(() => {
+    if (motionEndRef.current) {
+      motionEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [motionConversation, motionLoading, motionResult]);
+
+  // Focus motion input when loading finishes
+  useEffect(() => {
+    if (motionMode && !motionLoading && !motionGenerating) {
+      setTimeout(() => motionInputRef.current?.focus(), 300);
+    }
+  }, [motionMode, motionLoading, motionGenerating]);
+
+  // Load docs for motion sidebar
+  useEffect(() => {
+    if (motionMode && motionDocs.length === 0) {
+      datasetsApi.list().then(res => {
+        setMotionDocs((res.results || []).map((ds: { id: number; name: string; type?: string }) => ({
+          id: ds.id, name: ds.name, type: ds.type || 'file',
+        })));
+      }).catch(() => {});
+    }
+  }, [motionMode, motionDocs.length]);
+
+  const enterMotionMode = (initialMessage: string) => {
+    setMotionMode(true);
+    setMotionConversation([{ role: 'user', content: initialMessage }]);
+    setMotionLoading(true);
+    setMotionResult(null);
+    setMotionRefineResult(null);
+    setMotionGenStep('idle');
+    // Detect motion type from message
+    const lower = initialMessage.toLowerCase();
+    if (lower.includes('disclosure')) setMotionType('disclosure');
+    else if (lower.includes('stay')) setMotionType('stay_of_proceedings');
+    else setMotionType('charter_s8');
+
+    // Call intake
+    motionIntake({
+      conversation: [{ role: 'user', content: initialMessage }],
+      motion_type: lower.includes('disclosure') ? 'disclosure' : lower.includes('stay') ? 'stay_of_proceedings' : 'charter_s8',
+      provider: 'gemini',
+    }).then(res => {
+      if (res.ready) {
+        handleMotionReady(res, [{ role: 'user', content: initialMessage }]);
+      } else {
+        setMotionConversation(prev => [...prev, { role: 'assistant', content: res.question }]);
+      }
+    }).catch(err => {
+      toast.error('Failed to start motion intake');
+      console.error(err);
+    }).finally(() => setMotionLoading(false));
+  };
+
+  const handleMotionMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const msg = motionInput.trim();
+    if (!msg || motionLoading) return;
+
+    const updatedConv = [...motionConversation, { role: 'user' as const, content: msg }];
+    setMotionConversation(updatedConv);
+    setMotionInput('');
+    setMotionLoading(true);
+
+    try {
+      const res = await motionIntake({
+        conversation: updatedConv,
+        motion_type: motionType,
+        provider: 'gemini',
+      });
+
+      if (res.ready) {
+        handleMotionReady(res, updatedConv);
+      } else {
+        setMotionConversation(prev => [...prev, { role: 'assistant', content: res.question }]);
+      }
+    } catch (err) {
+      toast.error('Failed to process response');
+      console.error(err);
+    } finally {
+      setMotionLoading(false);
+    }
+  };
+
+  const handleMotionReady = async (
+    intakeResult: { case_details: Record<string, string>; case_description: string; motion_type: string },
+    conv: MotionMessage[],
+  ) => {
+    // Show confirmation message in chat
+    setMotionConversation([...conv, {
+      role: 'assistant',
+      content: `Got it. I have everything I need. Generating your ${MOTION_TYPES.find(m => m.id === intakeResult.motion_type)?.label || 'motion'} now...`,
+    }]);
+
+    setMotionGenerating(true);
+    setMotionGenStep('creating');
+    setMotionProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setMotionProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 3 + 0.5);
+    }, 500);
+
+    try {
+      if (motionWorkflow === 'refine') {
+        // Step 1: Generate with creator
+        const createRes = await apiClient.post('/ai-tools/generate_motion/', {
+          motion_type: intakeResult.motion_type,
+          case_details: intakeResult.case_details,
+          case_description: intakeResult.case_description,
+          reference_document_ids: motionSelectedDocs,
+          providers: [creatorProvider],
+        });
+        const initialDraft = createRes.data.results?.[creatorProvider];
+        if (!initialDraft?.success) throw new Error('Draft generation failed');
+
+        setMotionProgress(100);
+        await new Promise(r => setTimeout(r, 600));
+
+        // Step 2: Refine
+        setMotionGenStep('refining');
+        setMotionProgress(0);
+
+        const refineRes = await apiClient.post('/ai-tools/refine_draft/', {
+          motion_type: intakeResult.motion_type,
+          case_details: intakeResult.case_details,
+          case_description: intakeResult.case_description,
+          original_motion: initialDraft,
+          refiner_provider: refinerProvider,
+        });
+
+        if (refineRes.data.success) {
+          setMotionRefineResult({ initial: initialDraft, refined: refineRes.data.refined_result });
+          setMotionActiveTab('refined');
+        } else {
+          setMotionRefineResult({ initial: initialDraft, refined: initialDraft });
+          setMotionActiveTab('initial');
+        }
+      } else {
+        // Parallel
+        const res = await apiClient.post('/ai-tools/generate_motion/', {
+          motion_type: intakeResult.motion_type,
+          case_details: intakeResult.case_details,
+          case_description: intakeResult.case_description,
+          reference_document_ids: motionSelectedDocs,
+          providers: [creatorProvider],
+        });
+        const result = res.data.results?.[creatorProvider];
+        if (result?.success) {
+          setMotionResult(result);
+        }
+      }
+
+      setMotionProgress(100);
+      setMotionGenStep('done');
+    } catch (err) {
+      toast.error('Motion generation failed');
+      console.error(err);
+      setMotionGenStep('idle');
+    } finally {
+      clearInterval(progressInterval);
+      setMotionGenerating(false);
+    }
+  };
+
+  const resetMotionMode = () => {
+    setMotionMode(false);
+    setMotionConversation([]);
+    setMotionInput('');
+    setMotionResult(null);
+    setMotionRefineResult(null);
+    setMotionGenStep('idle');
+    setMotionProgress(0);
+    setMotionGenerating(false);
+    setMotionLoading(false);
+    setMotionSelectedDocs([]);
+    setShowAddToCase(false);
+    setAddToCaseSaved(false);
+  };
+
+  const getFullMotionText = (result: MotionResult | undefined) => {
+    if (!result?.motion) return result?.raw_motion || '';
+    const m = result.motion;
+    return `${m.header || ''}\n\n${m.title || ''}\n\n${m.introduction || ''}\n\nRELIEF SOUGHT:\n${(m.relief_sought || []).map((r, i) => `${i + 1}. ${r}`).join('\n')}\n\nGROUNDS:\n${(m.grounds || []).map((g, i) => `${i + 1}. ${g}`).join('\n')}\n\nFACTUAL BACKGROUND:\n${m.factual_background || ''}\n\nLEGAL ARGUMENT:\n${m.legal_argument?.charter_violation || ''}\n\n${m.conclusion || ''}\n\n${m.signature_block || ''}`;
+  };
+
+  const handleDownloadMotion = (result: MotionResult | undefined) => {
+    const text = getFullMotionText(result);
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Motion - ${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const openCanLII = (query?: string) => {
+    const q = query || canLIIQuery;
+    if (q) window.open(`https://www.canlii.org/en/#search/type=decision&text=${encodeURIComponent(q)}`, '_blank');
+    else window.open('https://www.canlii.org/en/on/', '_blank');
+  };
+
+  const handleMotionFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'file';
+        const typeMap: Record<string, string> = {
+          pdf: 'pdf', doc: 'doc', docx: 'docx', txt: 'txt', md: 'md',
+          csv: 'csv', xlsx: 'excel', xls: 'excel', json: 'json',
+        };
+        await datasetsApi.create({ name: file.name, type: typeMap[ext] || ext, file });
+      } catch (err) {
+        console.error(`Upload failed for ${file.name}:`, err);
+      }
+    }
+    // Refresh docs
+    try {
+      const res = await datasetsApi.list();
+      setMotionDocs((res.results || []).map((ds: { id: number; name: string; type?: string }) => ({
+        id: ds.id, name: ds.name, type: ds.type || 'file',
+      })));
+    } catch {}
+    if (motionFileInputRef.current) motionFileInputRef.current.value = '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const query = intent.trim();
     if (!query) return;
+
+    // Check for motion intent
+    if (activeTab === 'legal' && isMotionIntent(query)) {
+      setIntent('');
+      enterMotionMode(query);
+      return;
+    }
 
     setMessages([{ role: 'user', content: query }]);
     setConversationStep('gemini_loading');
@@ -263,6 +587,11 @@ Please provide an improved, refined response that addresses the user's feedback 
   };
 
   const handleSuggestion = (label: string, tool?: string) => {
+    if (tool === 'motion') {
+      // Enter motion mode directly on the dashboard
+      enterMotionMode(label);
+      return;
+    }
     if (tool) {
       const base = activeTab === 'legal' ? '/legal' : '/data';
       const params = new URLSearchParams();
@@ -363,9 +692,15 @@ Please provide an improved, refined response that addresses the user's feedback 
     exit: (dir: number) => ({ x: dir > 0 ? -280 : 280, opacity: 0 }),
   };
 
-  const isConversationActive = conversationStep !== 'idle';
+  const isConversationActive = conversationStep !== 'idle' || motionMode;
+  const isRegularConversation = conversationStep !== 'idle' && !motionMode;
   const isAnyLoading = conversationStep === 'gemini_loading' || conversationStep === 'gpt_loading';
   const isStreaming = conversationStep === 'gemini_streaming' || conversationStep === 'gpt_streaming';
+
+  // Get the active motion result for display
+  const activeMotionResult = motionRefineResult
+    ? (motionActiveTab === 'initial' ? motionRefineResult.initial : motionRefineResult.refined)
+    : motionResult;
 
   return (
     <div style={{ minHeight: '100vh', fontFamily: '"Outfit", sans-serif' }}>
@@ -894,9 +1229,507 @@ Please provide an improved, refined response that addresses the user's feedback 
         )}
       </AnimatePresence>
 
+      {/* ── Motion Conversation Mode ── */}
+      <AnimatePresence>
+        {motionMode && (
+          <motion.div
+            key="motion-mode"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+          >
+            <div style={{ display: 'flex', maxWidth: '1200px', margin: '0 auto', padding: '32px 24px 24px', gap: '24px' }}>
+              {/* Main conversation column */}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Motion header */}
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', marginBottom: '4px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'linear-gradient(135deg, #7c3aed, #4b5563)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    Motion Drafter
+                  </p>
+                </motion.div>
+
+                {/* Chat messages */}
+                {motionConversation.map((msg, i) => (
+                  <motion.div
+                    key={`motion-msg-${i}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: i * 0.05 }}
+                    style={{
+                      display: 'flex',
+                      justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    }}
+                  >
+                    <div style={{
+                      maxWidth: '80%',
+                      padding: '12px 16px',
+                      borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                      background: msg.role === 'user' ? 'linear-gradient(135deg, #4b5563, #374151)' : '#fff',
+                      color: msg.role === 'user' ? '#fff' : '#374151',
+                      border: msg.role === 'user' ? 'none' : '1px solid #e5e7eb',
+                      fontSize: '14px',
+                      lineHeight: 1.6,
+                      boxShadow: msg.role === 'user' ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.04)',
+                    }}>
+                      {msg.content}
+                    </div>
+                  </motion.div>
+                ))}
+
+                {/* Loading indicator */}
+                {motionLoading && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <div style={{
+                      padding: '12px 16px', borderRadius: '16px 16px 16px 4px', background: '#fff', border: '1px solid #e5e7eb',
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                    }}>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {[0, 1, 2].map(j => (
+                          <div key={j} style={{
+                            width: '6px', height: '6px', borderRadius: '50%', background: '#9ca3af',
+                            animation: `pulse 1s ease-in-out ${j * 0.2}s infinite`,
+                          }} />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: '13px', color: '#9ca3af' }}>Thinking...</span>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Generation progress stepper */}
+                {motionGenerating && motionGenStep !== 'done' && (
+                  <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ padding: '24px 0' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '400px', margin: '0 auto' }}>
+                      {[
+                        { key: 'creating', label: `Creating draft with ${PROVIDER_INFO[creatorProvider].name}`, provider: creatorProvider },
+                        ...(motionWorkflow === 'refine' ? [{ key: 'refining', label: `Refining with ${PROVIDER_INFO[refinerProvider].name}`, provider: refinerProvider }] : []),
+                      ].map((step, idx) => {
+                        const isActive = step.key === motionGenStep;
+                        const isComplete = (step.key === 'creating' && motionGenStep === 'refining');
+                        const providerColor = PROVIDER_INFO[step.provider]?.color || '#6b7280';
+                        return (
+                          <div key={step.key}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <div style={{
+                                width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 700, fontSize: '13px', flexShrink: 0,
+                                background: isComplete ? '#16a34a' : isActive ? providerColor : '#e5e7eb',
+                                color: isComplete || isActive ? '#fff' : '#9ca3af',
+                                boxShadow: isActive ? `0 0 0 4px ${providerColor}25` : 'none',
+                              }}>
+                                {isComplete ? (
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                ) : idx + 1}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 600, fontSize: '13px', color: '#111827' }}>{step.label}</div>
+                              </div>
+                              {isActive && (
+                                <div style={{ width: '18px', height: '18px', border: `2.5px solid ${providerColor}30`, borderTopColor: providerColor, borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+                              )}
+                            </div>
+                            {isActive && (
+                              <div style={{ marginTop: '8px', marginLeft: '48px', height: '3px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${Math.min(motionProgress, 95)}%`, background: providerColor, borderRadius: '4px', transition: 'width 0.5s ease-out' }} />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  </motion.div>
+                )}
+
+                {/* Generated motion result inline */}
+                {motionGenStep === 'done' && activeMotionResult && (
+                  <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+                    {/* Workflow tabs for refine mode */}
+                    {motionRefineResult && (
+                      <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', padding: '3px', background: '#f3f4f6', borderRadius: '10px' }}>
+                        {[
+                          { key: 'initial', label: `Initial (${PROVIDER_INFO[creatorProvider].name})`, provider: creatorProvider },
+                          { key: 'refined', label: `Refined (${PROVIDER_INFO[refinerProvider].name})`, provider: refinerProvider },
+                        ].map(tab => (
+                          <button key={tab.key} onClick={() => setMotionActiveTab(tab.key)} style={{
+                            flex: 1, padding: '8px 14px', fontSize: '13px', fontWeight: 600,
+                            background: motionActiveTab === tab.key ? '#fff' : 'transparent',
+                            color: motionActiveTab === tab.key ? PROVIDER_INFO[tab.provider].color : '#6b7280',
+                            border: 'none', borderRadius: '8px', cursor: 'pointer',
+                            boxShadow: motionActiveTab === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                          }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: PROVIDER_INFO[tab.provider].color, display: 'inline-block', marginRight: '6px' }} />
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Refinement notes */}
+                    {motionActiveTab === 'refined' && motionRefineResult?.refined?.refinement_notes && (
+                      <div style={{ padding: '12px 16px', background: '#f0fdf4', borderRadius: '10px', marginBottom: '14px', border: '1px solid #bbf7d0' }}>
+                        <div style={{ fontWeight: 600, fontSize: '12px', color: '#166534', marginBottom: '4px' }}>Refinement Notes</div>
+                        <p style={{ fontSize: '13px', color: '#15803d', margin: 0, lineHeight: 1.5 }}>{motionRefineResult.refined.refinement_notes}</p>
+                      </div>
+                    )}
+
+                    {/* Risk assessment */}
+                    {activeMotionResult.risk_assessment && (
+                      <div style={{
+                        padding: '14px 16px', borderRadius: '10px', marginBottom: '14px',
+                        background: activeMotionResult.risk_assessment.strength === 'strong' ? '#f0fdf4' : activeMotionResult.risk_assessment.strength === 'moderate' ? '#fffbeb' : '#fef2f2',
+                        borderLeft: `4px solid ${activeMotionResult.risk_assessment.strength === 'strong' ? '#16a34a' : activeMotionResult.risk_assessment.strength === 'moderate' ? '#d97706' : '#dc2626'}`,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                          <span style={{ fontWeight: 600, fontSize: '13px', color: '#111827' }}>Motion Strength:</span>
+                          <span style={{
+                            padding: '2px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase',
+                            background: activeMotionResult.risk_assessment.strength === 'strong' ? '#dcfce7' : activeMotionResult.risk_assessment.strength === 'moderate' ? '#fef3c7' : '#fecaca',
+                            color: activeMotionResult.risk_assessment.strength === 'strong' ? '#166534' : activeMotionResult.risk_assessment.strength === 'moderate' ? '#92400e' : '#dc2626',
+                          }}>{activeMotionResult.risk_assessment.strength}</span>
+                        </div>
+                        <p style={{ fontSize: '13px', color: '#374151', margin: 0, lineHeight: 1.5 }}>{activeMotionResult.risk_assessment.explanation}</p>
+                      </div>
+                    )}
+
+                    {/* Motion sections */}
+                    {activeMotionResult.motion ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {activeMotionResult.motion.header && (
+                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
+                            <pre style={{ fontFamily: "'Courier New', monospace", fontSize: '11px', whiteSpace: 'pre-wrap', margin: 0, color: '#374151' }}>{activeMotionResult.motion.header}</pre>
+                          </div>
+                        )}
+                        {(activeMotionResult.motion.title || activeMotionResult.motion.introduction) && (
+                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
+                            {activeMotionResult.motion.title && <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: '0 0 10px 0', textAlign: 'center' }}>{activeMotionResult.motion.title}</h3>}
+                            {activeMotionResult.motion.introduction && <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, margin: 0 }}>{activeMotionResult.motion.introduction}</p>}
+                          </div>
+                        )}
+                        {activeMotionResult.motion.relief_sought && activeMotionResult.motion.relief_sought.length > 0 && (
+                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
+                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>RELIEF SOUGHT</h4>
+                            <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                              {activeMotionResult.motion.relief_sought.map((item, i) => <li key={i} style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, marginBottom: '6px' }}>{item}</li>)}
+                            </ol>
+                          </div>
+                        )}
+                        {activeMotionResult.motion.grounds && activeMotionResult.motion.grounds.length > 0 && (
+                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
+                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>GROUNDS</h4>
+                            <ol style={{ margin: 0, paddingLeft: '20px' }}>
+                              {activeMotionResult.motion.grounds.map((item, i) => <li key={i} style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, marginBottom: '6px' }}>{item}</li>)}
+                            </ol>
+                          </div>
+                        )}
+                        {activeMotionResult.motion.factual_background && (
+                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
+                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>FACTUAL BACKGROUND</h4>
+                            <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{activeMotionResult.motion.factual_background}</p>
+                          </div>
+                        )}
+                        {activeMotionResult.motion.legal_argument && (
+                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
+                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>LEGAL ARGUMENT</h4>
+                            {activeMotionResult.motion.legal_argument.charter_violation && (
+                              <div style={{ marginBottom: '12px' }}>
+                                <h5 style={{ fontSize: '12px', fontWeight: 600, color: '#7c3aed', margin: '0 0 6px 0' }}>Charter Violation</h5>
+                                <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, margin: 0 }}>{activeMotionResult.motion.legal_argument.charter_violation}</p>
+                              </div>
+                            )}
+                            {activeMotionResult.motion.legal_argument.grant_analysis && (
+                              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '14px', marginTop: '8px' }}>
+                                <h5 style={{ fontSize: '12px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>Grant Framework Analysis</h5>
+                                {activeMotionResult.motion.legal_argument.grant_analysis.seriousness_of_breach && (
+                                  <div style={{ marginBottom: '10px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>1. Seriousness of Breach:</span>
+                                    <p style={{ fontSize: '12px', color: '#374151', margin: '2px 0 0 0', lineHeight: 1.5 }}>{activeMotionResult.motion.legal_argument.grant_analysis.seriousness_of_breach}</p>
+                                  </div>
+                                )}
+                                {activeMotionResult.motion.legal_argument.grant_analysis.impact_on_accused && (
+                                  <div style={{ marginBottom: '10px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>2. Impact on Accused:</span>
+                                    <p style={{ fontSize: '12px', color: '#374151', margin: '2px 0 0 0', lineHeight: 1.5 }}>{activeMotionResult.motion.legal_argument.grant_analysis.impact_on_accused}</p>
+                                  </div>
+                                )}
+                                {activeMotionResult.motion.legal_argument.grant_analysis.society_interest && (
+                                  <div>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>3. Society's Interest:</span>
+                                    <p style={{ fontSize: '12px', color: '#374151', margin: '2px 0 0 0', lineHeight: 1.5 }}>{activeMotionResult.motion.legal_argument.grant_analysis.society_interest}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {activeMotionResult.motion.conclusion && (
+                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
+                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>CONCLUSION</h4>
+                            <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, margin: 0 }}>{activeMotionResult.motion.conclusion}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : activeMotionResult.raw_motion && (
+                      <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
+                        <pre style={{ fontFamily: "'Courier New', monospace", fontSize: '12px', whiteSpace: 'pre-wrap', margin: 0, color: '#374151' }}>{activeMotionResult.raw_motion}</pre>
+                      </div>
+                    )}
+
+                    {/* Key case law */}
+                    {activeMotionResult.key_case_law && activeMotionResult.key_case_law.length > 0 && (
+                      <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px', marginTop: '12px' }}>
+                        <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>Key Case Law</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {activeMotionResult.key_case_law.map((c, i) => (
+                            <div key={i} style={{ padding: '8px 10px', background: '#f9fafb', borderRadius: '6px' }}>
+                              <div style={{ fontWeight: 600, fontSize: '12px', color: '#7c3aed' }}>{c.case}</div>
+                              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{c.relevance}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* New query button */}
+                    <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '16px' }}>
+                      <button className="new-query-btn" onClick={resetMotionMode}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                          New query
+                        </span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Chat input - only show during intake phase */}
+                {!motionGenerating && motionGenStep !== 'done' && !motionLoading && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                    <form onSubmit={handleMotionMessage} style={{
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb',
+                      padding: '6px 6px 6px 16px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+                    }}>
+                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" strokeWidth={1.5} style={{ flexShrink: 0, opacity: 0.5 }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <input
+                        ref={motionInputRef}
+                        className="feedback-input"
+                        type="text"
+                        value={motionInput}
+                        onChange={(e) => setMotionInput(e.target.value)}
+                        placeholder="Type your response..."
+                      />
+                      <button type="submit" className="refine-btn" disabled={!motionInput.trim()} style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          Send
+                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                        </span>
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
+
+                <div ref={motionEndRef} />
+              </div>
+
+              {/* ── Right Sidebar ── */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                style={{ width: '280px', flexShrink: 0, position: 'sticky', top: '24px', alignSelf: 'flex-start', display: 'flex', flexDirection: 'column', gap: '12px' }}
+              >
+                {/* Workflow section */}
+                <div style={{ borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px', background: '#fff' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Workflow</div>
+                  <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', padding: '3px', background: '#f3f4f6', borderRadius: '8px' }}>
+                    <button onClick={() => setMotionWorkflow('parallel')} style={{
+                      flex: 1, padding: '6px 8px', fontSize: '11px', fontWeight: 600,
+                      background: motionWorkflow === 'parallel' ? '#fff' : 'transparent',
+                      color: motionWorkflow === 'parallel' ? '#111827' : '#9ca3af',
+                      border: 'none', borderRadius: '6px', cursor: 'pointer',
+                      boxShadow: motionWorkflow === 'parallel' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                    }}>Compare</button>
+                    <button onClick={() => setMotionWorkflow('refine')} style={{
+                      flex: 1, padding: '6px 8px', fontSize: '11px', fontWeight: 600,
+                      background: motionWorkflow === 'refine' ? '#fff' : 'transparent',
+                      color: motionWorkflow === 'refine' ? '#111827' : '#9ca3af',
+                      border: 'none', borderRadius: '6px', cursor: 'pointer',
+                      boxShadow: motionWorkflow === 'refine' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+                    }}>Create & Refine</button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6b7280', marginBottom: '4px' }}>
+                        {motionWorkflow === 'refine' ? 'Creator' : 'Provider'}
+                      </label>
+                      <select value={creatorProvider} onChange={(e) => setCreatorProvider(e.target.value as MotionProvider)} style={{
+                        width: '100%', padding: '7px 10px', border: `1.5px solid ${PROVIDER_INFO[creatorProvider].color}40`,
+                        borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[creatorProvider].bg, cursor: 'pointer',
+                      }}>
+                        <option value="claude">Claude</option>
+                        <option value="gemini">Gemini</option>
+                        <option value="gpt4">GPT-5.2</option>
+                      </select>
+                    </div>
+                    {motionWorkflow === 'refine' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6b7280', marginBottom: '4px' }}>Refiner</label>
+                        <select value={refinerProvider} onChange={(e) => setRefinerProvider(e.target.value as MotionProvider)} style={{
+                          width: '100%', padding: '7px 10px', border: `1.5px solid ${PROVIDER_INFO[refinerProvider].color}40`,
+                          borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[refinerProvider].bg, cursor: 'pointer',
+                        }}>
+                          <option value="claude">Claude</option>
+                          <option value="gemini">Gemini</option>
+                          <option value="gpt4">GPT-5.2</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Documents section */}
+                <div style={{ borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px', background: '#fff' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Documents</div>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#7c3aed'; }}
+                    onDragLeave={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; }}
+                    onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#d1d5db'; handleMotionFileUpload(e.dataTransfer.files); }}
+                    onClick={() => motionFileInputRef.current?.click()}
+                    style={{
+                      border: '2px dashed #d1d5db', borderRadius: '8px', padding: '12px', textAlign: 'center', cursor: 'pointer',
+                      marginBottom: '10px', background: '#fafafa', transition: 'border-color 0.2s',
+                    }}
+                  >
+                    <input ref={motionFileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.txt,.md" style={{ display: 'none' }} onChange={(e) => handleMotionFileUpload(e.target.files)} />
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ margin: '0 auto 4px' }}>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>Drop files or <span style={{ color: '#7c3aed', fontWeight: 600 }}>browse</span></div>
+                  </div>
+                  {motionDocs.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '160px', overflowY: 'auto' }}>
+                      {motionDocs.map(doc => {
+                        const sel = motionSelectedDocs.includes(doc.id);
+                        return (
+                          <button key={doc.id} onClick={() => setMotionSelectedDocs(prev => sel ? prev.filter(id => id !== doc.id) : [...prev, doc.id])} style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', background: sel ? '#f5f3ff' : '#f9fafb',
+                            border: `1.5px solid ${sel ? '#7c3aed' : '#e5e7eb'}`, borderRadius: '6px', cursor: 'pointer', textAlign: 'left', fontSize: '12px',
+                          }}>
+                            <div style={{
+                              width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0,
+                              border: `2px solid ${sel ? '#7c3aed' : '#d1d5db'}`, background: sel ? '#7c3aed' : '#fff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            </div>
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: sel ? 600 : 400, color: '#374151' }}>{doc.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* CanLII section */}
+                <div style={{ borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px', background: '#fff' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>CanLII Lookup</div>
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                    <input type="text" value={canLIIQuery} onChange={(e) => setCanLIIQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && openCanLII()}
+                      placeholder="Search case law..." style={{ flex: 1, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px' }} />
+                    <button onClick={() => openCanLII()} style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: '#d97706', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                      <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Criminal Code', query: 'Criminal Code RSC 1985 c C-46' },
+                      { label: 'Charter', query: 'Canadian Charter of Rights and Freedoms' },
+                      { label: 'CDSA', query: 'Controlled Drugs and Substances Act' },
+                      { label: 'Ontario Courts', query: '' },
+                    ].map(link => (
+                      <button key={link.label} onClick={() => link.query ? openCanLII(link.query) : window.open('https://www.canlii.org/en/on/', '_blank')}
+                        style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 500, background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d', borderRadius: '10px', cursor: 'pointer' }}>
+                        {link.label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Referenced cases from result */}
+                  {activeMotionResult?.key_case_law && activeMotionResult.key_case_law.length > 0 && (
+                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f3f4f6' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#92400e', marginBottom: '4px' }}>Cited cases:</div>
+                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                        {activeMotionResult.key_case_law.slice(0, 5).map((c, i) => (
+                          <button key={i} onClick={() => openCanLII(c.case)} style={{
+                            padding: '2px 6px', fontSize: '10px', fontWeight: 500, background: '#fef3c7', color: '#78350f',
+                            border: '1px solid #fcd34d', borderRadius: '4px', cursor: 'pointer',
+                          }} title={c.relevance}>{c.case}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions section - only after generation */}
+                {motionGenStep === 'done' && activeMotionResult && (
+                  <div style={{ borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px', background: '#fff' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Actions</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <button onClick={() => { navigator.clipboard.writeText(getFullMotionText(activeMotionResult)); toast.success('Copied to clipboard'); }} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '12px', fontWeight: 500,
+                        background: '#f9fafb', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer', width: '100%',
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copy Motion
+                      </button>
+                      <button onClick={() => handleDownloadMotion(activeMotionResult)} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '12px', fontWeight: 500,
+                        background: '#f9fafb', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '8px', cursor: 'pointer', width: '100%',
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Download
+                      </button>
+                      <button onClick={() => setShowAddToCase(!showAddToCase)} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '12px', fontWeight: 500,
+                        background: showAddToCase ? '#eff6ff' : '#f9fafb', color: showAddToCase ? '#2563eb' : '#374151',
+                        border: `1px solid ${showAddToCase ? '#93c5fd' : '#e5e7eb'}`, borderRadius: '8px', cursor: 'pointer', width: '100%',
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Add to Case
+                      </button>
+                    </div>
+                    {showAddToCase && (
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <input type="text" value={caseOrPersonName} onChange={(e) => setCaseOrPersonName(e.target.value)}
+                            placeholder="Case name or file #" style={{ flex: 1, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px' }} />
+                          <button onClick={() => { setAddToCaseSaved(true); setShowAddToCase(false); setCaseOrPersonName(''); setTimeout(() => setAddToCaseSaved(false), 3000); }} disabled={!caseOrPersonName.trim()}
+                            style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: caseOrPersonName.trim() ? '#2563eb' : '#e5e7eb', color: caseOrPersonName.trim() ? '#fff' : '#9ca3af', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {addToCaseSaved && (
+                      <div style={{ marginTop: '8px', padding: '8px 10px', background: '#f0fdf4', borderRadius: '6px', border: '1px solid #bbf7d0', fontSize: '12px', color: '#166534', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Saved to case
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Conversation Flow ── */}
       <AnimatePresence>
-        {isConversationActive && (
+        {isRegularConversation && (
           <motion.div
             key="conversation"
             initial={{ opacity: 0 }}

@@ -84,6 +84,15 @@ export function generateStream(
   return controller;
 }
 
+export async function motionIntake(data: {
+  conversation: Array<{ role: string; content: string }>;
+  motion_type?: string;
+  provider?: string;
+}) {
+  const response = await apiClient.post('/ai-tools/motion_intake/', data);
+  return response.data;
+}
+
 export const aitoolsApi = {
   list: async (params?: { status?: string }): Promise<AIToolListResponse> => {
     const response = await apiClient.get('/ai-tools/', { params });
