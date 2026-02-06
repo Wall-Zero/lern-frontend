@@ -690,8 +690,8 @@ Please provide an improved, refined response that addresses the user's feedback 
 
   const tools = activeTab === 'legal' ? legalTools : dataTools;
   const suggestions = activeTab === 'legal' ? legalSuggestions : dataSuggestions;
-  const accent = activeTab === 'legal' ? '#4b5563' : '#0d9488';
-  const lightBg = activeTab === 'legal' ? '#f3f4f6' : '#f0fdfa';
+  const accent = activeTab === 'legal' ? '#0d9488' : '#0d9488';
+  const lightBg = activeTab === 'legal' ? '#f0fdfa' : '#f0fdfa';
 
   const filteredRecent = recentDocs.filter((doc) => {
     const fileType = doc.type?.toLowerCase() || '';
@@ -1084,9 +1084,7 @@ Please provide an improved, refined response that addresses the user's feedback 
           >
             <div className="hero-section" style={{
               padding: '40px 32px 36px',
-              background: activeTab === 'legal'
-                ? 'linear-gradient(180deg, #f9fafb 0%, #f3f4f6 100%)'
-                : 'linear-gradient(180deg, #f0fdfa 0%, #e6fffa 100%)',
+              background: 'linear-gradient(180deg, #f0fdfa 0%, #e6fffa 100%)',
               transition: 'background 0.3s ease',
               borderBottom: '1px solid #e2e8f0',
             }}>
@@ -1124,12 +1122,8 @@ Please provide an improved, refined response that addresses the user's feedback 
                         width: 'calc(50% - 4px)',
                       }}
                       style={{
-                        background: activeTab === 'legal'
-                          ? 'linear-gradient(135deg, #4b5563 0%, #6b7280 100%)'
-                          : 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
-                        boxShadow: activeTab === 'legal'
-                          ? '0 2px 12px rgba(75, 85, 99, 0.35)'
-                          : '0 2px 12px rgba(13, 148, 136, 0.35)',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
+                        boxShadow: '0 2px 12px rgba(13, 148, 136, 0.35)',
                       }}
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />
