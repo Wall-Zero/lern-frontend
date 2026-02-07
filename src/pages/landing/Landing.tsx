@@ -290,6 +290,36 @@ const DataFutureLanding = () => {
         }
       `}</style>
 
+      {/* Always-visible Log In button */}
+      <button
+        onClick={handleLaunchApp}
+        style={{
+          position: 'fixed',
+          top: '24px',
+          right: '48px',
+          zIndex: 200,
+          background: 'transparent',
+          border: '1px solid rgba(0, 255, 200, 0.4)',
+          color: '#00ffc8',
+          padding: '10px 24px',
+          borderRadius: '8px',
+          fontFamily: '"Space Mono", monospace',
+          fontSize: '13px',
+          cursor: 'pointer',
+          transition: 'all 0.3s',
+        }}
+        onMouseEnter={e => {
+          (e.target as HTMLElement).style.background = 'rgba(0, 255, 200, 0.1)';
+          (e.target as HTMLElement).style.borderColor = '#00ffc8';
+        }}
+        onMouseLeave={e => {
+          (e.target as HTMLElement).style.background = 'transparent';
+          (e.target as HTMLElement).style.borderColor = 'rgba(0, 255, 200, 0.4)';
+        }}
+      >
+        Log In →
+      </button>
+
       {/* Terminal Phase */}
       {(phase === 'terminal' || phase === 'glitching') && (
         <div style={{
@@ -472,34 +502,6 @@ const DataFutureLanding = () => {
               ))}
             </div>
 
-            <button
-              className="nav-button"
-              onClick={handleLaunchApp}
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(0, 255, 200, 0.4)',
-                color: '#00ffc8',
-                padding: '10px 24px',
-                borderRadius: '8px',
-                fontFamily: '"Space Mono", monospace',
-                fontSize: '13px',
-                cursor: 'pointer',
-                transition: 'all 0.3s',
-                animation: 'slideUp 0.8s ease-out',
-                animationDelay: '0.3s',
-                animationFillMode: 'both'
-              }}
-              onMouseEnter={e => {
-                (e.target as HTMLElement).style.background = 'rgba(0, 255, 200, 0.1)';
-                (e.target as HTMLElement).style.borderColor = '#00ffc8';
-              }}
-              onMouseLeave={e => {
-                (e.target as HTMLElement).style.background = 'transparent';
-                (e.target as HTMLElement).style.borderColor = 'rgba(0, 255, 200, 0.4)';
-              }}
-            >
-              Log In →
-            </button>
           </nav>
 
           {/* Hero Section */}

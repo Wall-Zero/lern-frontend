@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { datasetsApi } from '../../api/endpoints/datasets';
@@ -152,12 +152,7 @@ const detectFutureDates = (text: string): string[] => {
   return Array.from(found);
 };
 
-const legalSuggestions = [
-  { label: 'Draft a Charter s.8 motion', icon: 'doc', tool: 'motion' },
-  { label: 'Analyze a disclosure', icon: 'search', tool: 'analysis' },
-  { label: 'Compare two contracts', icon: 'compare', tool: 'compare' },
-  { label: 'Stay of proceedings brief', icon: 'doc', tool: 'motion' },
-];
+const legalSuggestions: { label: string; icon: string; tool: string }[] = [];
 
 const dataSuggestions = [
   { label: 'Find patterns in my CSV', icon: 'chart' },
@@ -299,14 +294,14 @@ export const Dashboard = () => {
 
   // Load docs for motion sidebar
   useEffect(() => {
-    if (motionMode && motionDocs.length === 0) {
+    if (motionMode) {
       datasetsApi.list().then(res => {
         setMotionDocs((res.results || []).map((ds: { id: number; name: string; type?: string }) => ({
           id: ds.id, name: ds.name, type: ds.type || 'file',
         })));
       }).catch(() => {});
     }
-  }, [motionMode, motionDocs.length]);
+  }, [motionMode]);
 
   const getJurisdictionContext = () => {
     const country = JURISDICTIONS[jurisdictionCountry];
@@ -317,8 +312,9 @@ export const Dashboard = () => {
   const enterMotionMode = (initialMessage: string) => {
     setMotionMode(true);
     // Carry sidebar-selected docs into motion mode
-    if (selectedContextDocs.length > 0) {
-      setMotionSelectedDocs(prev => [...new Set([...prev, ...selectedContextDocs])]);
+    const sidebarDocIds = [...selectedContextDocs];
+    if (sidebarDocIds.length > 0) {
+      setMotionSelectedDocs(prev => [...new Set([...prev, ...sidebarDocIds])]);
     }
     setMotionConversation([{ role: 'user', content: initialMessage }]);
     setMotionResult(null);
@@ -329,7 +325,55 @@ export const Dashboard = () => {
     if (lower.includes('disclosure')) setMotionType('disclosure');
     else if (lower.includes('stay')) setMotionType('stay_of_proceedings');
     else setMotionType('charter_s8');
-    // Don't call motionIntake yet — let user select documents first
+
+    // Auto-start intake: resolve hero doc IDs first if any, then fire
+    const heroNames = heroUploadedFiles.filter(f => !f.uploading).map(f => f.name);
+    const doStart = (extraDocIds: number[] = []) => {
+      const allSelectedIds = [...new Set([...sidebarDocIds, ...extraDocIds])];
+      const heroCtx = heroNames.length > 0
+        ? ` [User has uploaded these documents for reference: ${heroNames.join(', ')}.]`
+        : '';
+      const docCtx = allSelectedIds.length > 0
+        ? ` [User has selected these existing documents as context: ${allSelectedIds.map(id => {
+            const d = motionDocs.find(doc => doc.id === id);
+            return d ? d.name : `doc#${id}`;
+          }).join(', ')}.]`
+        : '';
+      const contextMsg = `${getJurisdictionContext()}${heroCtx}${docCtx} ${initialMessage}`;
+      const conversation: MotionMessage[] = [{ role: 'user', content: contextMsg }];
+      setMotionLoading(true);
+      motionIntake({
+        conversation,
+        motion_type: lower.includes('disclosure') ? 'disclosure' : lower.includes('stay') ? 'stay_of_proceedings' : 'charter_s8',
+        provider: 'gemini',
+        reference_document_ids: allSelectedIds.length > 0 ? allSelectedIds : undefined,
+      }).then(res => {
+        if (res.ready) {
+          handleMotionReady(res, conversation);
+        } else {
+          setMotionConversation(prev => [...prev, { role: 'assistant', content: res.question }]);
+        }
+      }).catch(err => {
+        console.error(err);
+      }).finally(() => setMotionLoading(false));
+    };
+
+    if (heroNames.length > 0) {
+      // Fetch doc list to resolve hero file IDs, then start
+      datasetsApi.list().then(res => {
+        const allDocs = (res.results || []).map((ds: { id: number; name: string; type?: string }) => ({
+          id: ds.id, name: ds.name, type: ds.type || 'file',
+        }));
+        setMotionDocs(allDocs);
+        const heroIds = allDocs.filter((d: { name: string }) => heroNames.includes(d.name)).map((d: { id: number }) => d.id);
+        if (heroIds.length > 0) {
+          setMotionSelectedDocs(prev => [...new Set([...prev, ...heroIds])]);
+        }
+        doStart(heroIds);
+      }).catch(() => doStart());
+    } else {
+      doStart();
+    }
   };
 
   const startMotionIntake = (additionalMessage?: string) => {
@@ -632,8 +676,15 @@ export const Dashboard = () => {
 
   const handleMotionFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    const uploadedNames: string[] = [];
+    // Get existing docs to skip duplicates
+    const existingNames = motionDocs.map(d => d.name);
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      if (existingNames.includes(file.name)) {
+        uploadedNames.push(file.name);
+        continue;
+      }
       try {
         const ext = file.name.split('.').pop()?.toLowerCase() || 'file';
         const typeMap: Record<string, string> = {
@@ -641,16 +692,23 @@ export const Dashboard = () => {
           csv: 'csv', xlsx: 'excel', xls: 'excel', json: 'json',
         };
         await datasetsApi.create({ name: file.name, type: typeMap[ext] || ext, file });
+        uploadedNames.push(file.name);
       } catch (err) {
         console.error(`Upload failed for ${file.name}:`, err);
       }
     }
-    // Refresh docs (both motion sidebar and main sidebar)
+    // Refresh docs and auto-select newly uploaded ones by matching name
     try {
       const res = await datasetsApi.list();
-      setMotionDocs((res.results || []).map((ds: { id: number; name: string; type?: string }) => ({
+      const allDocs = (res.results || []).map((ds: { id: number; name: string; type?: string }) => ({
         id: ds.id, name: ds.name, type: ds.type || 'file',
-      })));
+      }));
+      setMotionDocs(allDocs);
+      // Auto-select the docs we just uploaded
+      const newIds = allDocs.filter((d: { name: string }) => uploadedNames.includes(d.name)).map((d: { id: number }) => d.id);
+      if (newIds.length > 0) {
+        setMotionSelectedDocs(prev => [...new Set([...prev, ...newIds])]);
+      }
       const sorted = res.results
         .sort((a: Dataset, b: Dataset) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
         .slice(0, 10);
@@ -661,11 +719,25 @@ export const Dashboard = () => {
 
   const handleHeroFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    // Check for existing docs with same name to avoid duplicates
+    let existingDocs: Array<{ id: number; name: string }> = [];
+    try {
+      const res = await datasetsApi.list();
+      existingDocs = (res.results || []).map((ds: { id: number; name: string }) => ({ id: ds.id, name: ds.name }));
+    } catch {}
+
     const newFiles = Array.from(files).map(f => ({ name: f.name, uploading: true }));
     setHeroUploadedFiles(prev => [...prev, ...newFiles]);
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+      // Skip upload if doc with same name already exists
+      const existing = existingDocs.find(d => d.name === file.name);
+      if (existing) {
+        setHeroUploadedFiles(prev => prev.map(f => f.name === file.name ? { ...f, uploading: false } : f));
+        toast.success(`Using existing ${file.name}`);
+        continue;
+      }
       try {
         const ext = file.name.split('.').pop()?.toLowerCase() || 'file';
         const typeMap: Record<string, string> = {
@@ -869,7 +941,10 @@ Please provide an improved, refined response that addresses the user's feedback 
       }}>
         {/* Logo */}
         <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #f1f5f9' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            onClick={motionMode ? resetMotionMode : resetConversation}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+          >
             <div style={{
               width: '32px', height: '32px', borderRadius: '10px',
               background: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
@@ -1791,16 +1866,17 @@ Please provide an improved, refined response that addresses the user's feedback 
                   <button
                     onClick={() => heroFileInputRef.current?.click()}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: '8px',
-                      padding: '9px 20px', fontSize: '13px', fontWeight: 500,
-                      background: 'transparent', color: '#7c3aed',
-                      border: '1.5px dashed #c4b5fd', borderRadius: '10px', cursor: 'pointer',
-                      transition: 'all 0.2s ease',
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      padding: '14px 32px', fontSize: '15px', fontWeight: 600,
+                      background: 'rgba(240, 253, 250, 0.6)', color: '#0f766e',
+                      border: '2px dashed rgba(13, 148, 136, 0.35)', borderRadius: '14px', cursor: 'pointer',
+                      transition: 'all 0.25s ease',
+                      boxShadow: '0 2px 8px rgba(13, 148, 136, 0.06)',
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f3ff'; e.currentTarget.style.borderColor = '#7c3aed'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#c4b5fd'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(240, 253, 250, 0.9)'; e.currentTarget.style.borderColor = 'rgba(13, 148, 136, 0.5)'; e.currentTarget.style.color = '#0d9488'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(13, 148, 136, 0.12)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(240, 253, 250, 0.6)'; e.currentTarget.style.borderColor = 'rgba(13, 148, 136, 0.35)'; e.currentTarget.style.color = '#0f766e'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(13, 148, 136, 0.06)'; }}
                   >
-                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
                     Add context or documents
@@ -1864,137 +1940,67 @@ Please provide an improved, refined response that addresses the user's feedback 
                   </p>
                 </motion.div>
 
-                {/* Document prompt — shows at start before intake begins */}
-                {motionConversation.length <= 1 && !motionGenerating && motionGenStep !== 'done' && (
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                    <div style={{
-                      borderRadius: '14px', border: '1px solid #e2e8f0', padding: '24px', background: '#fff',
-                      boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-                    }}>
-                      {/* Prompt question */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
-                        <div style={{
-                          width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-                          background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
-                            Do you have any documents to reference?
-                          </div>
-                          <p style={{ fontSize: '13px', color: '#6b7280', margin: 0, lineHeight: 1.5 }}>
-                            Upload a police report, disclosure package, complaint, or any relevant case document. LERN will analyze it to produce a stronger, more accurate motion. You can also proceed without documents.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Existing documents */}
-                      {motionDocs.length > 0 && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>Your documents</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '140px', overflowY: 'auto' }}>
-                            {motionDocs.map(doc => {
-                              const sel = motionSelectedDocs.includes(doc.id);
-                              return (
-                                <button key={doc.id} onClick={() => setMotionSelectedDocs(prev => sel ? prev.filter(id => id !== doc.id) : [...prev, doc.id])} style={{
-                                  display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: sel ? '#f0fdfa' : '#f9fafb',
-                                  border: `1.5px solid ${sel ? '#0d9488' : '#e5e7eb'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'left', fontSize: '12px',
-                                  transition: 'all 0.15s ease',
-                                }}>
-                                  <div style={{
-                                    width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
-                                    border: `2px solid ${sel ? '#0d9488' : '#d1d5db'}`, background: sel ? '#0d9488' : '#fff',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  }}>
-                                    {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                                  </div>
-                                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={1.5} style={{ flexShrink: 0 }}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                  </svg>
-                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: sel ? 600 : 400, color: '#374151' }}>{doc.name}</span>
-                                  <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 500 }}>{doc.type?.toUpperCase()}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Upload area */}
-                      <div
-                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#0d9488'; }}
-                        onDragLeave={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; }}
-                        onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#d1d5db'; handleMotionFileUpload(e.dataTransfer.files); }}
-                        onClick={() => motionFileInputRef.current?.click()}
-                        style={{
-                          border: '2px dashed #d1d5db', borderRadius: '10px', padding: '16px', textAlign: 'center', cursor: 'pointer',
-                          background: '#fafafa', transition: 'border-color 0.2s', marginBottom: '12px',
-                        }}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ margin: '0 auto 6px' }}>
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        <div style={{ fontSize: '12px', color: '#6b7280' }}>Drop files or <span style={{ color: '#0d9488', fontWeight: 600 }}>browse</span></div>
-                        <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>PDF, DOC, TXT, MD</div>
-                      </div>
-
-                      {/* Selection count */}
-                      {motionSelectedDocs.length > 0 && (
-                        <div style={{ fontSize: '12px', color: '#0d9488', fontWeight: 600, marginBottom: '8px' }}>
-                          {motionSelectedDocs.length} document{motionSelectedDocs.length > 1 ? 's' : ''} selected as reference
-                        </div>
-                      )}
-
-                      {/* Continue button */}
-                      <button
-                        onClick={() => startMotionIntake()}
-                        style={{
-                          width: '100%', marginTop: '12px', padding: '12px 24px',
-                          fontSize: '14px', fontWeight: 600, color: '#fff',
-                          background: 'linear-gradient(135deg, #0d9488, #14b8a6)',
-                          border: 'none', borderRadius: '10px', cursor: 'pointer',
-                          boxShadow: '0 4px 12px rgba(13, 148, 136, 0.3)',
-                          transition: 'all 0.2s ease',
-                        }}
-                      >
-                        {motionSelectedDocs.length > 0
-                          ? `Continue with ${motionSelectedDocs.length} document${motionSelectedDocs.length > 1 ? 's' : ''}`
-                          : 'Continue without documents'}
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
+                {/* Document names shown in chat are rendered after each user message below */}
 
                 {/* Chat messages */}
                 {motionConversation.map((msg, i) => (
-                  <motion.div
-                    key={`motion-msg-${i}`}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25, delay: i * 0.05 }}
-                    style={{
-                      display: 'flex',
-                      justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    }}
-                  >
-                    <div style={{
-                      maxWidth: '80%',
-                      padding: '12px 16px',
-                      borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                      background: msg.role === 'user' ? 'linear-gradient(135deg, #4b5563, #374151)' : '#fff',
-                      color: msg.role === 'user' ? '#fff' : '#374151',
-                      border: msg.role === 'user' ? 'none' : '1px solid #e5e7eb',
-                      fontSize: '14px',
-                      lineHeight: 1.6,
-                      boxShadow: msg.role === 'user' ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.04)',
-                    }}>
-                      {msg.content}
-                    </div>
-                  </motion.div>
+                  <React.Fragment key={`motion-msg-${i}`}>
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: i * 0.05 }}
+                      style={{
+                        display: 'flex',
+                        justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                      }}
+                    >
+                      <div style={{
+                        maxWidth: '80%',
+                        padding: '12px 16px',
+                        borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                        background: msg.role === 'user' ? 'linear-gradient(135deg, #4b5563, #374151)' : '#fff',
+                        color: msg.role === 'user' ? '#fff' : '#374151',
+                        border: msg.role === 'user' ? 'none' : '1px solid #e5e7eb',
+                        fontSize: '14px',
+                        lineHeight: 1.6,
+                        boxShadow: msg.role === 'user' ? '0 2px 8px rgba(0,0,0,0.12)' : '0 1px 4px rgba(0,0,0,0.04)',
+                      }}>
+                        {msg.content}
+                      </div>
+                    </motion.div>
+                    {/* Show attached documents after first user message */}
+                    {i === 0 && msg.role === 'user' && (() => {
+                      // Gather doc names from motionDocs (matched by ID) + heroUploadedFiles as fallback
+                      const fromMotionDocs = motionDocs.filter(d => motionSelectedDocs.includes(d.id)).map(d => ({ key: `md-${d.id}`, name: d.name }));
+                      const heroNames = heroUploadedFiles.filter(f => !f.uploading).map((f, idx) => ({ key: `hero-${idx}`, name: f.name }));
+                      // Deduplicate by name — motionDocs take priority, hero names fill in before async resolves
+                      const seen = new Set<string>();
+                      const allDocs = [...fromMotionDocs, ...heroNames].filter(d => { if (seen.has(d.name)) return false; seen.add(d.name); return true; });
+                      if (allDocs.length === 0) return null;
+                      return (
+                        <motion.div
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, delay: 0.1 }}
+                          style={{ display: 'flex', justifyContent: 'flex-end' }}
+                        >
+                          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '80%' }}>
+                            {allDocs.map(doc => (
+                              <span key={doc.key} style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                padding: '4px 10px', fontSize: '11px', fontWeight: 500,
+                                background: 'rgba(75, 85, 99, 0.08)', color: '#6b7280',
+                                border: '1px solid #e5e7eb', borderRadius: '8px',
+                              }}>
+                                <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01a1.5 1.5 0 01-2.122-2.122" /></svg>
+                                {doc.name.length > 30 ? doc.name.slice(0, 27) + '...' : doc.name}
+                              </span>
+                            ))}
+                          </div>
+                        </motion.div>
+                      );
+                    })()}
+                  </React.Fragment>
                 ))}
 
                 {/* Loading indicator */}
@@ -2310,6 +2316,25 @@ Please provide an improved, refined response that addresses the user's feedback 
                 {/* Chat input - show during intake AND after generation for refinement */}
                 {!motionGenerating && !motionLoading && (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                    {/* Attached docs chips */}
+                    {motionSelectedDocs.length > 0 && (
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '6px', paddingLeft: '2px' }}>
+                        {motionDocs.filter(d => motionSelectedDocs.includes(d.id)).map(doc => (
+                          <span key={doc.id} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            padding: '3px 8px', fontSize: '11px', fontWeight: 500,
+                            background: '#f0fdfa', color: '#0f766e',
+                            border: '1px solid #99f6e4', borderRadius: '6px',
+                          }}>
+                            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            {doc.name.length > 25 ? doc.name.slice(0, 22) + '...' : doc.name}
+                            <button onClick={() => setMotionSelectedDocs(prev => prev.filter(id => id !== doc.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: '#9ca3af' }}>
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <form onSubmit={handleMotionMessage} style={{
                       display: 'flex', alignItems: 'center', gap: '10px',
                       background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb',
@@ -2326,6 +2351,27 @@ Please provide an improved, refined response that addresses the user's feedback 
                         onChange={(e) => setMotionInput(e.target.value)}
                         placeholder={motionGenStep === 'done' ? 'Refine the motion further, or press Download...' : 'Type your response...'}
                       />
+                      {/* Attach docs — paperclip icon */}
+                      {motionGenStep !== 'done' && (
+                        <button
+                          type="button"
+                          onClick={() => motionFileInputRef.current?.click()}
+                          title="Attach documents"
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: '36px', height: '36px', flexShrink: 0,
+                            background: 'transparent', color: '#9ca3af',
+                            border: 'none', borderRadius: '8px', cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#0d9488'; e.currentTarget.style.background = '#f0fdfa'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = '#9ca3af'; e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01a1.5 1.5 0 01-2.122-2.122" />
+                          </svg>
+                        </button>
+                      )}
                       <button type="submit" className="refine-btn" disabled={!motionInput.trim()} style={{ background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           Send
