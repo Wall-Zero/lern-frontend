@@ -10,20 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import type { Dataset } from '../../types/dataset.types';
 
 const DOCUMENT_TYPES = ['pdf', 'doc', 'docx', 'txt', 'md', 'text'];
-const DATA_TYPES = ['csv', 'xlsx', 'xls', 'json', 'excel'];
-
 const formatFileType = (type: string) => type.toUpperCase();
-
-const timeAgo = (dateStr: string) => {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-};
 
 type Tab = 'legal' | 'data';
 type ConversationStep = 'idle' | 'gemini_loading' | 'gemini_streaming' | 'gemini_done' | 'gpt_loading' | 'gpt_streaming' | 'gpt_done';
@@ -188,7 +175,7 @@ export const Dashboard = () => {
   const [intent, setIntent] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [recentDocs, setRecentDocs] = useState<Dataset[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const [heroUploadedFiles, setHeroUploadedFiles] = useState<Array<{ name: string; uploading: boolean }>>([]);
@@ -217,8 +204,8 @@ export const Dashboard = () => {
   const [motionLoading, setMotionLoading] = useState(false);
   const [motionType, setMotionType] = useState('charter_s8');
   const [motionWorkflow] = useState<MotionWorkflow>('refine');
-  const [creatorProvider, setCreatorProvider] = useState<MotionProvider>('gpt4');
-  const [refinerProvider, setRefinerProvider] = useState<MotionProvider>('claude');
+  const [creatorProvider] = useState<MotionProvider>('gpt4');
+  const [refinerProvider] = useState<MotionProvider>('claude');
   const [orchestrator, setOrchestrator] = useState<'lern-2.1' | 'lern-1.9'>('lern-2.1');
   const [motionGenerating, setMotionGenerating] = useState(false);
   const [motionGenStep, setMotionGenStep] = useState<'idle' | 'creating' | 'refining' | 'done'>('idle');
