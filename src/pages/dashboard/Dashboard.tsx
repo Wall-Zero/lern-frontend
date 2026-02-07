@@ -9,7 +9,6 @@ import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import type { Dataset } from '../../types/dataset.types';
 
-const DOCUMENT_TYPES = ['pdf', 'doc', 'docx', 'txt', 'md', 'text'];
 const formatFileType = (type: string) => type.toUpperCase();
 
 type Tab = 'legal' | 'data';
@@ -179,6 +178,7 @@ export const Dashboard = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const [heroUploadedFiles, setHeroUploadedFiles] = useState<Array<{ name: string; uploading: boolean }>>([]);
+  const [selectedContextDocs, setSelectedContextDocs] = useState<number[]>([]);
 
   // Conversation state
   const [conversationStep, setConversationStep] = useState<ConversationStep>('idle');
@@ -316,10 +316,17 @@ export const Dashboard = () => {
 
   const enterMotionMode = (initialMessage: string) => {
     setMotionMode(true);
-    const docsContext = heroUploadedFiles.filter(f => !f.uploading).length > 0
+    // Carry sidebar-selected docs into motion mode
+    if (selectedContextDocs.length > 0) {
+      setMotionSelectedDocs(prev => [...new Set([...prev, ...selectedContextDocs])]);
+    }
+    const heroContext = heroUploadedFiles.filter(f => !f.uploading).length > 0
       ? ` [User has uploaded these documents for reference: ${heroUploadedFiles.filter(f => !f.uploading).map(f => f.name).join(', ')}.]`
       : '';
-    const contextMsg = `${getJurisdictionContext()}${docsContext} ${initialMessage}`;
+    const sidebarContext = selectedContextDocs.length > 0
+      ? ` [User has selected these existing documents as context: ${recentDocs.filter(d => selectedContextDocs.includes(d.id)).map(d => d.name).join(', ')}.]`
+      : '';
+    const contextMsg = `${getJurisdictionContext()}${heroContext}${sidebarContext} ${initialMessage}`;
     setMotionConversation([{ role: 'user', content: initialMessage }]);
     setMotionLoading(true);
     setMotionResult(null);
@@ -619,12 +626,16 @@ export const Dashboard = () => {
         console.error(`Upload failed for ${file.name}:`, err);
       }
     }
-    // Refresh docs
+    // Refresh docs (both motion sidebar and main sidebar)
     try {
       const res = await datasetsApi.list();
       setMotionDocs((res.results || []).map((ds: { id: number; name: string; type?: string }) => ({
         id: ds.id, name: ds.name, type: ds.type || 'file',
       })));
+      const sorted = res.results
+        .sort((a: Dataset, b: Dataset) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+        .slice(0, 10);
+      setRecentDocs(sorted);
     } catch {}
     if (motionFileInputRef.current) motionFileInputRef.current.value = '';
   };
@@ -661,15 +672,23 @@ export const Dashboard = () => {
     if (heroFileInputRef.current) heroFileInputRef.current.value = '';
   };
 
-  // Build context prefix with jurisdiction and uploaded docs
+  // Build context prefix with jurisdiction and uploaded/selected docs
   const buildContextPrefix = () => {
     const parts: string[] = [];
     if (activeTab === 'legal') {
       parts.push(getJurisdictionContext());
     }
+    // Include hero-uploaded files
     if (heroUploadedFiles.filter(f => !f.uploading).length > 0) {
       const docNames = heroUploadedFiles.filter(f => !f.uploading).map(f => f.name).join(', ');
       parts.push(`[User has uploaded these documents for reference: ${docNames}. Analyze them in context of the request.]`);
+    }
+    // Include sidebar-selected context documents
+    if (selectedContextDocs.length > 0) {
+      const selectedNames = recentDocs.filter(d => selectedContextDocs.includes(d.id)).map(d => d.name).join(', ');
+      if (selectedNames) {
+        parts.push(`[User has selected these existing documents as context: ${selectedNames}. Use them as reference for the request.]`);
+      }
     }
     return parts.length > 0 ? parts.join(' ') + ' ' : '';
   };
@@ -909,9 +928,9 @@ Please provide an improved, refined response that addresses the user's feedback 
           ))}
         </div>
 
-        {/* Documents section */}
+        {/* Documents section — click to add as context */}
         <div style={{ borderTop: '1px solid #f1f5f9', padding: '12px 16px 8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Documents
             </div>
@@ -922,34 +941,50 @@ Please provide an improved, refined response that addresses the user's feedback 
               + Add
             </button>
           </div>
-          <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
-            {recentDocs.length > 0 ? recentDocs.slice(0, 6).map((doc) => (
-              <div key={doc.id} style={{
-                display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px',
-                borderRadius: '6px', marginBottom: '2px', cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#f8fafc'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-                onClick={() => navigate(DOCUMENT_TYPES.includes(doc.type?.toLowerCase()) ? '/dashboard' : '/data')}
-              >
-                <div style={{
-                  width: '24px', height: '24px', borderRadius: '6px', flexShrink: 0,
-                  background: DOCUMENT_TYPES.includes(doc.type?.toLowerCase()) ? '#f1f5f9' : '#f0fdfa',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke={DOCUMENT_TYPES.includes(doc.type?.toLowerCase()) ? '#475569' : '#0d9488'} strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+          {selectedContextDocs.length > 0 && (
+            <div style={{ fontSize: '10px', color: '#0d9488', fontWeight: 600, marginBottom: '6px' }}>
+              {selectedContextDocs.length} selected as context
+            </div>
+          )}
+          <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
+            {recentDocs.length > 0 ? recentDocs.slice(0, 8).map((doc) => {
+              const isSelected = selectedContextDocs.includes(doc.id);
+              return (
+                <div key={doc.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px',
+                  borderRadius: '6px', marginBottom: '2px', cursor: 'pointer',
+                  background: isSelected ? '#f0fdfa' : 'transparent',
+                  border: isSelected ? '1px solid #99f6e4' : '1px solid transparent',
+                  transition: 'all 0.15s',
+                }}
+                  onMouseEnter={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = '#f8fafc'; }}
+                  onMouseLeave={(e) => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                  onClick={() => setSelectedContextDocs(prev =>
+                    isSelected ? prev.filter(id => id !== doc.id) : [...prev, doc.id]
+                  )}
+                >
+                  <div style={{
+                    width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
+                    border: `2px solid ${isSelected ? '#0d9488' : '#d1d5db'}`,
+                    background: isSelected ? '#0d9488' : '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.15s',
+                  }}>
+                    {isSelected && (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                        <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '12px', fontWeight: isSelected ? 600 : 500, color: isSelected ? '#0f172a' : '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                  </div>
+                  <span style={{ fontSize: '9px', fontWeight: 600, color: isSelected ? '#0d9488' : '#94a3b8', background: isSelected ? '#ccfbf1' : '#f1f5f9', padding: '2px 5px', borderRadius: '4px' }}>
+                    {formatFileType(doc.type)}
+                  </span>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
-                </div>
-                <span style={{ fontSize: '9px', fontWeight: 600, color: '#94a3b8', background: '#f1f5f9', padding: '2px 5px', borderRadius: '4px' }}>
-                  {formatFileType(doc.type)}
-                </span>
-              </div>
-            )) : (
+              );
+            }) : (
               <div style={{ fontSize: '12px', color: '#b0b8c4', padding: '8px', textAlign: 'center' }}>No documents yet</div>
             )}
           </div>
