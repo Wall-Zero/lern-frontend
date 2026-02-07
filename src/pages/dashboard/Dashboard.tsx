@@ -1093,7 +1093,7 @@ Please provide an improved, refined response that addresses the user's feedback 
           }}>
             <div style={{
               width: '28px', height: '28px', borderRadius: '8px',
-              background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+              background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
@@ -1106,9 +1106,9 @@ Please provide an improved, refined response that addresses the user's feedback 
             </div>
             <span style={{
               position: 'absolute', top: '6px', right: '8px',
-              fontSize: '8px', fontWeight: 700, color: '#7c3aed', background: '#f5f3ff',
+              fontSize: '8px', fontWeight: 700, color: '#0d9488', background: '#f0fdfa',
               padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.04em',
-              textTransform: 'uppercase', border: '1px solid #ede9fe',
+              textTransform: 'uppercase', border: '1px solid #ccfbf1',
             }}>
               Coming Soon
             </span>
