@@ -523,8 +523,8 @@ export const Dashboard = () => {
       });
 
       if (refineRes.data.success) {
-        const previousInitial = motionRefineResult?.initial || motionResult || currentResult;
-        setMotionRefineResult({ initial: previousInitial, refined: refineRes.data.refined_result });
+        // Current version becomes Version A, new refinement becomes Version B
+        setMotionRefineResult({ initial: currentResult, refined: refineRes.data.refined_result });
         setMotionActiveTab('refined');
         setMotionConversation(prev => [...prev, {
           role: 'assistant',
