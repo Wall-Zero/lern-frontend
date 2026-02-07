@@ -871,7 +871,7 @@ Please provide an improved, refined response that addresses the user's feedback 
             onClick={motionMode ? resetMotionMode : resetConversation}
             style={{
               width: '100%', padding: '10px 14px', fontSize: '13px', fontWeight: 600,
-              background: '#0f172a', color: '#fff', border: 'none', borderRadius: '10px',
+              background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)', color: '#fff', border: 'none', borderRadius: '10px',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
               transition: 'all 0.2s ease',
             }}
@@ -936,7 +936,7 @@ Please provide an improved, refined response that addresses the user's feedback 
             </div>
             <button
               onClick={() => motionFileInputRef.current?.click()}
-              style={{ padding: '2px 6px', fontSize: '10px', fontWeight: 600, background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ede9fe', borderRadius: '4px', cursor: 'pointer' }}
+              style={{ padding: '2px 6px', fontSize: '10px', fontWeight: 600, background: '#f0fdfa', color: '#0d9488', border: '1px solid #99f6e4', borderRadius: '4px', cursor: 'pointer' }}
             >
               + Add
             </button>
@@ -1167,12 +1167,12 @@ Please provide an improved, refined response that addresses the user's feedback 
           gap: 8px;
           flex-shrink: 0;
           transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-          background: #0f172a;
+          background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
         }
         .go-btn:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 30px rgba(15, 23, 42, 0.3);
-          background: #1e293b;
+          box-shadow: 0 8px 30px rgba(13, 148, 136, 0.3);
+          background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
         }
 
         .chip {
