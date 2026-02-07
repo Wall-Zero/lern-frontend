@@ -88,6 +88,7 @@ export async function motionIntake(data: {
   conversation: Array<{ role: string; content: string }>;
   motion_type?: string;
   provider?: string;
+  reference_document_ids?: number[];
 }) {
   const response = await apiClient.post('/ai-tools/motion_intake/', data);
   return response.data;

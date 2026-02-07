@@ -353,6 +353,7 @@ export const Dashboard = () => {
       conversation,
       motion_type: motionType,
       provider: 'gemini',
+      reference_document_ids: motionSelectedDocs.length > 0 ? motionSelectedDocs : undefined,
     }).then(res => {
       if (res.ready) {
         handleMotionReady(res, conversation);
