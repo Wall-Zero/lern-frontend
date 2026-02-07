@@ -120,11 +120,11 @@ const JURISDICTIONS: Record<string, { label: string; states: Array<{ value: stri
 };
 
 const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string }> = {
-  claude: { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
-  gemini: { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
-  gpt4: { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
-  'lern-2.1': { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
-  'lern-1.9': { name: 'LERN 1.9.1', color: '#6d28d9', bg: '#ede9fe' },
+  claude: { name: 'LERN 2.1', color: '#0d9488', bg: '#f0fdfa' },
+  gemini: { name: 'LERN 2.1', color: '#0d9488', bg: '#f0fdfa' },
+  gpt4: { name: 'LERN 2.1', color: '#0d9488', bg: '#f0fdfa' },
+  'lern-2.1': { name: 'LERN 2.1', color: '#0d9488', bg: '#f0fdfa' },
+  'lern-1.9': { name: 'LERN 1.9.1', color: '#0f766e', bg: '#f0fdfa' },
 };
 
 const detectFutureDates = (text: string): string[] => {
@@ -1858,10 +1858,30 @@ Please provide an improved, refined response that addresses the user's feedback 
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* Motion header */}
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', marginBottom: '4px' }}>
-                  <p style={{ fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'linear-gradient(135deg, #7c3aed, #4b5563)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  <p style={{ fontSize: '11px', fontWeight: 700, margin: '0 0 8px 0', textTransform: 'uppercase', letterSpacing: '0.06em', background: 'linear-gradient(135deg, #0d9488, #4b5563)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                     Motion Drafter
                   </p>
                 </motion.div>
+
+                {/* Show user's initial message above the document panel */}
+                {motionConversation.length <= 1 && !motionGenerating && motionGenStep !== 'done' && motionConversation.filter(m => m.role === 'user').map((msg, i) => (
+                  <motion.div
+                    key={`motion-initial-${i}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ display: 'flex', justifyContent: 'flex-end' }}
+                  >
+                    <div style={{
+                      maxWidth: '80%', padding: '12px 16px',
+                      borderRadius: '16px 16px 4px 16px',
+                      background: 'linear-gradient(135deg, #4b5563, #374151)',
+                      color: '#fff', fontSize: '14px', lineHeight: 1.6,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                    }}>
+                      {msg.content}
+                    </div>
+                  </motion.div>
+                ))}
 
                 {/* Document prompt — shows at start before intake begins */}
                 {motionConversation.length <= 1 && !motionGenerating && motionGenStep !== 'done' && (
@@ -1874,7 +1894,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
                         <div style={{
                           width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-                          background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+                          background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                           <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
@@ -1900,13 +1920,13 @@ Please provide an improved, refined response that addresses the user's feedback 
                               const sel = motionSelectedDocs.includes(doc.id);
                               return (
                                 <button key={doc.id} onClick={() => setMotionSelectedDocs(prev => sel ? prev.filter(id => id !== doc.id) : [...prev, doc.id])} style={{
-                                  display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: sel ? '#f5f3ff' : '#f9fafb',
-                                  border: `1.5px solid ${sel ? '#7c3aed' : '#e5e7eb'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'left', fontSize: '12px',
+                                  display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: sel ? '#f0fdfa' : '#f9fafb',
+                                  border: `1.5px solid ${sel ? '#0d9488' : '#e5e7eb'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'left', fontSize: '12px',
                                   transition: 'all 0.15s ease',
                                 }}>
                                   <div style={{
                                     width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
-                                    border: `2px solid ${sel ? '#7c3aed' : '#d1d5db'}`, background: sel ? '#7c3aed' : '#fff',
+                                    border: `2px solid ${sel ? '#0d9488' : '#d1d5db'}`, background: sel ? '#0d9488' : '#fff',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                   }}>
                                     {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -1925,7 +1945,7 @@ Please provide an improved, refined response that addresses the user's feedback 
 
                       {/* Upload area */}
                       <div
-                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#7c3aed'; }}
+                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#0d9488'; }}
                         onDragLeave={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; }}
                         onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#d1d5db'; handleMotionFileUpload(e.dataTransfer.files); }}
                         onClick={() => motionFileInputRef.current?.click()}
@@ -1937,13 +1957,13 @@ Please provide an improved, refined response that addresses the user's feedback 
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ margin: '0 auto 6px' }}>
                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                        <div style={{ fontSize: '12px', color: '#6b7280' }}>Drop files or <span style={{ color: '#7c3aed', fontWeight: 600 }}>browse</span></div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>Drop files or <span style={{ color: '#0d9488', fontWeight: 600 }}>browse</span></div>
                         <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>PDF, DOC, TXT, MD</div>
                       </div>
 
                       {/* Selection count */}
                       {motionSelectedDocs.length > 0 && (
-                        <div style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600, marginBottom: '8px' }}>
+                        <div style={{ fontSize: '12px', color: '#0d9488', fontWeight: 600, marginBottom: '8px' }}>
                           {motionSelectedDocs.length} document{motionSelectedDocs.length > 1 ? 's' : ''} selected as reference
                         </div>
                       )}
@@ -1954,9 +1974,9 @@ Please provide an improved, refined response that addresses the user's feedback 
                         style={{
                           width: '100%', marginTop: '12px', padding: '12px 24px',
                           fontSize: '14px', fontWeight: 600, color: '#fff',
-                          background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
+                          background: 'linear-gradient(135deg, #0d9488, #14b8a6)',
                           border: 'none', borderRadius: '10px', cursor: 'pointer',
-                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                          boxShadow: '0 4px 12px rgba(13, 148, 136, 0.3)',
                           transition: 'all 0.2s ease',
                         }}
                       >
@@ -2026,7 +2046,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       ].map((step, idx) => {
                         const isActive = step.key === motionGenStep;
                         const isComplete = (step.key === 'creating' && motionGenStep === 'refining');
-                        const providerColor = '#7c3aed';
+                        const providerColor = '#0d9488';
                         return (
                           <div key={step.key}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -2080,7 +2100,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                             { key: 'refined', label: 'Version B', sublabel: 'Enhanced version' },
                           ].map(tab => {
                             const isSelected = motionActiveTab === tab.key;
-                            const accentColor = '#7c3aed';
+                            const accentColor = '#0d9488';
                             return (
                               <button key={tab.key} onClick={() => setMotionActiveTab(tab.key)} style={{
                                 padding: '14px 16px', fontSize: '13px', fontWeight: 600,
@@ -2152,7 +2172,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                         position: 'relative',
                       }}>
                         {/* Subtle left border accent */}
-                        <div style={{ position: 'absolute', left: 0, top: '24px', bottom: '24px', width: '3px', background: 'linear-gradient(180deg, #7c3aed 0%, #a78bfa 100%)', borderRadius: '0 2px 2px 0' }} />
+                        <div style={{ position: 'absolute', left: 0, top: '24px', bottom: '24px', width: '3px', background: 'linear-gradient(180deg, #0d9488 0%, #5eead4 100%)', borderRadius: '0 2px 2px 0' }} />
 
                         {activeMotionResult.motion.header && (
                           <div style={{ textAlign: 'center', marginBottom: '32px', paddingBottom: '24px', borderBottom: '2px solid #111' }}>
@@ -2249,12 +2269,12 @@ Please provide an improved, refined response that addresses the user's feedback 
                     {activeMotionResult.key_case_law && activeMotionResult.key_case_law.length > 0 && (
                       <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '20px', marginTop: '16px', maxWidth: '800px', margin: '16px auto 0' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#0d9488" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
                           <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '0.02em' }}>Referenced Case Law</h4>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {activeMotionResult.key_case_law.map((c, i) => (
-                            <div key={i} style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #7c3aed' }}>
+                            <div key={i} style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #0d9488' }}>
                               <div style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b', fontStyle: 'italic' }}>{c.case}</div>
                               <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px', lineHeight: 1.5 }}>{c.relevance}</div>
                             </div>
@@ -2290,7 +2310,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                         onClick={() => motionFileInputRef.current?.click()}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', fontSize: '13px', fontWeight: 600,
-                          background: '#fff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: '10px', cursor: 'pointer',
+                          background: '#fff', color: '#0d9488', border: '1px solid #99f6e4', borderRadius: '10px', cursor: 'pointer',
                         }}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -2314,7 +2334,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb',
                       padding: '6px 6px 6px 16px', boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
                     }}>
-                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" strokeWidth={1.5} style={{ flexShrink: 0, opacity: 0.5 }}>
+                      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#0d9488" strokeWidth={1.5} style={{ flexShrink: 0, opacity: 0.5 }}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                       <input
@@ -2325,7 +2345,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                         onChange={(e) => setMotionInput(e.target.value)}
                         placeholder={motionGenStep === 'done' ? 'Refine the motion further, or press Download...' : 'Type your response...'}
                       />
-                      <button type="submit" className="refine-btn" disabled={!motionInput.trim()} style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}>
+                      <button type="submit" className="refine-btn" disabled={!motionInput.trim()} style={{ background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           Send
                           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
@@ -2387,9 +2407,9 @@ Please provide an improved, refined response that addresses the user's feedback 
                 <div style={{ borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px', background: '#fff' }}>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Orchestrator</div>
                   <select value={orchestrator} onChange={(e) => setOrchestrator(e.target.value as 'lern-2.1' | 'lern-1.9')} style={{
-                    width: '100%', padding: '9px 12px', border: `1.5px solid ${PROVIDER_INFO[orchestrator]?.color || '#7c3aed'}40`,
-                    borderRadius: '8px', fontSize: '13px', fontWeight: 600, background: PROVIDER_INFO[orchestrator]?.bg || '#f3e8ff', cursor: 'pointer',
-                    color: PROVIDER_INFO[orchestrator]?.color || '#7c3aed',
+                    width: '100%', padding: '9px 12px', border: `1.5px solid ${PROVIDER_INFO[orchestrator]?.color || '#0d9488'}40`,
+                    borderRadius: '8px', fontSize: '13px', fontWeight: 600, background: PROVIDER_INFO[orchestrator]?.bg || '#f0fdfa', cursor: 'pointer',
+                    color: PROVIDER_INFO[orchestrator]?.color || '#0d9488',
                   }}>
                     <option value="lern-2.1">LERN 2.1 Beta</option>
                     <option value="lern-1.9">LERN 1.9.1 Stable</option>
@@ -2403,7 +2423,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                 <div style={{ borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px', background: '#fff' }}>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Documents</div>
                   <div
-                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#7c3aed'; }}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#0d9488'; }}
                     onDragLeave={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; }}
                     onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#d1d5db'; handleMotionFileUpload(e.dataTransfer.files); }}
                     onClick={() => motionFileInputRef.current?.click()}
@@ -2416,7 +2436,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ margin: '0 auto 4px' }}>
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
-                    <div style={{ fontSize: '11px', color: '#6b7280' }}>Drop files or <span style={{ color: '#7c3aed', fontWeight: 600 }}>browse</span></div>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>Drop files or <span style={{ color: '#0d9488', fontWeight: 600 }}>browse</span></div>
                   </div>
                   {motionDocs.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '160px', overflowY: 'auto' }}>
@@ -2424,12 +2444,12 @@ Please provide an improved, refined response that addresses the user's feedback 
                         const sel = motionSelectedDocs.includes(doc.id);
                         return (
                           <button key={doc.id} onClick={() => setMotionSelectedDocs(prev => sel ? prev.filter(id => id !== doc.id) : [...prev, doc.id])} style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', background: sel ? '#f5f3ff' : '#f9fafb',
-                            border: `1.5px solid ${sel ? '#7c3aed' : '#e5e7eb'}`, borderRadius: '6px', cursor: 'pointer', textAlign: 'left', fontSize: '12px',
+                            display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', background: sel ? '#f0fdfa' : '#f9fafb',
+                            border: `1.5px solid ${sel ? '#0d9488' : '#e5e7eb'}`, borderRadius: '6px', cursor: 'pointer', textAlign: 'left', fontSize: '12px',
                           }}>
                             <div style={{
                               width: '14px', height: '14px', borderRadius: '3px', flexShrink: 0,
-                              border: `2px solid ${sel ? '#7c3aed' : '#d1d5db'}`, background: sel ? '#7c3aed' : '#fff',
+                              border: `2px solid ${sel ? '#0d9488' : '#d1d5db'}`, background: sel ? '#0d9488' : '#fff',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
                               {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -2448,7 +2468,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                   <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                     <input type="text" value={canLIIQuery} onChange={(e) => setCanLIIQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && openCanLII()}
                       placeholder="Search case law..." style={{ flex: 1, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px' }} />
-                    <button onClick={() => openCanLII()} style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                    <button onClick={() => openCanLII()} style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: '#0d9488', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
                       <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </button>
                   </div>
@@ -2460,7 +2480,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       { label: 'Ontario Courts', query: '' },
                     ].map(link => (
                       <button key={link.label} onClick={() => link.query ? openCanLII(link.query) : window.open('https://www.canlii.org/en/on/', '_blank')}
-                        style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 500, background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', borderRadius: '10px', cursor: 'pointer' }}>
+                        style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 500, background: '#f0fdfa', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: '10px', cursor: 'pointer' }}>
                         {link.label}
                       </button>
                     ))}
@@ -2468,12 +2488,12 @@ Please provide an improved, refined response that addresses the user's feedback 
                   {/* Referenced cases from result */}
                   {activeMotionResult?.key_case_law && activeMotionResult.key_case_law.length > 0 && (
                     <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f3f4f6' }}>
-                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#6d28d9', marginBottom: '4px' }}>Cited cases:</div>
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#0f766e', marginBottom: '4px' }}>Cited cases:</div>
                       <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                         {activeMotionResult.key_case_law.slice(0, 5).map((c, i) => (
                           <button key={i} onClick={() => openCanLII(c.case)} style={{
-                            padding: '2px 6px', fontSize: '10px', fontWeight: 500, background: '#f5f3ff', color: '#6d28d9',
-                            border: '1px solid #ddd6fe', borderRadius: '4px', cursor: 'pointer',
+                            padding: '2px 6px', fontSize: '10px', fontWeight: 500, background: '#f0fdfa', color: '#0f766e',
+                            border: '1px solid #99f6e4', borderRadius: '4px', cursor: 'pointer',
                           }} title={c.relevance}>{c.case}</button>
                         ))}
                       </div>
@@ -2502,7 +2522,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       </button>
                       <button onClick={() => setShowAddToCase(!showAddToCase)} style={{
                         display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '12px', fontWeight: 500,
-                        background: showAddToCase ? '#f5f3ff' : '#f9fafb', color: showAddToCase ? '#7c3aed' : '#374151',
+                        background: showAddToCase ? '#f0fdfa' : '#f9fafb', color: showAddToCase ? '#0d9488' : '#374151',
                         border: `1px solid ${showAddToCase ? '#93c5fd' : '#e5e7eb'}`, borderRadius: '8px', cursor: 'pointer', width: '100%',
                       }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -2515,7 +2535,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                           <input type="text" value={caseOrPersonName} onChange={(e) => setCaseOrPersonName(e.target.value)}
                             placeholder="Case name or file #" style={{ flex: 1, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px' }} />
                           <button onClick={() => { setAddToCaseSaved(true); setShowAddToCase(false); setCaseOrPersonName(''); setTimeout(() => setAddToCaseSaved(false), 3000); }} disabled={!caseOrPersonName.trim()}
-                            style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: caseOrPersonName.trim() ? '#7c3aed' : '#e5e7eb', color: caseOrPersonName.trim() ? '#fff' : '#9ca3af', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                            style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: caseOrPersonName.trim() ? '#0d9488' : '#e5e7eb', color: caseOrPersonName.trim() ? '#fff' : '#9ca3af', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
                             Save
                           </button>
                         </div>
