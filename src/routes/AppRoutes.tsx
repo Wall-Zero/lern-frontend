@@ -30,7 +30,7 @@ export const AppRoutes = () => {
           path="/dashboard"
           element={
             <PrivateRoute>
-              <AppLayout>
+              <AppLayout hideSidebar>
                 <Dashboard />
               </AppLayout>
             </PrivateRoute>

@@ -11,9 +11,9 @@ export const AppLayout = ({ children, hideSidebar }: AppLayoutProps) => {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="flex min-h-screen" style={{ background: '#f9fafb' }}>
+      <div className="flex min-h-screen w-full" style={{ background: '#f9fafb' }}>
         {!hideSidebar && <Sidebar />}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto min-w-0">
           {children}
         </main>
       </div>

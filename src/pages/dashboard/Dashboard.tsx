@@ -87,10 +87,56 @@ const MOTION_TYPES = [
   { id: 'stay_of_proceedings', label: 'Stay of Proceedings' },
 ];
 
+const JURISDICTIONS: Record<string, { label: string; states: Array<{ value: string; label: string }> }> = {
+  canada: {
+    label: 'Canada',
+    states: [
+      { value: 'ontario', label: 'Ontario' },
+      { value: 'british_columbia', label: 'British Columbia' },
+      { value: 'alberta', label: 'Alberta' },
+      { value: 'quebec', label: 'Quebec' },
+      { value: 'manitoba', label: 'Manitoba' },
+      { value: 'saskatchewan', label: 'Saskatchewan' },
+      { value: 'nova_scotia', label: 'Nova Scotia' },
+      { value: 'new_brunswick', label: 'New Brunswick' },
+      { value: 'newfoundland', label: 'Newfoundland & Labrador' },
+      { value: 'pei', label: 'Prince Edward Island' },
+      { value: 'nwt', label: 'Northwest Territories' },
+      { value: 'yukon', label: 'Yukon' },
+      { value: 'nunavut', label: 'Nunavut' },
+    ],
+  },
+  us: {
+    label: 'United States',
+    states: [
+      { value: 'california', label: 'California' },
+      { value: 'new_york', label: 'New York' },
+      { value: 'texas', label: 'Texas' },
+      { value: 'florida', label: 'Florida' },
+      { value: 'illinois', label: 'Illinois' },
+      { value: 'pennsylvania', label: 'Pennsylvania' },
+      { value: 'ohio', label: 'Ohio' },
+      { value: 'georgia', label: 'Georgia' },
+      { value: 'michigan', label: 'Michigan' },
+      { value: 'north_carolina', label: 'North Carolina' },
+      { value: 'new_jersey', label: 'New Jersey' },
+      { value: 'virginia', label: 'Virginia' },
+      { value: 'washington', label: 'Washington' },
+      { value: 'massachusetts', label: 'Massachusetts' },
+      { value: 'arizona', label: 'Arizona' },
+      { value: 'colorado', label: 'Colorado' },
+      { value: 'maryland', label: 'Maryland' },
+      { value: 'minnesota', label: 'Minnesota' },
+      { value: 'tennessee', label: 'Tennessee' },
+      { value: 'indiana', label: 'Indiana' },
+    ],
+  },
+};
+
 const PROVIDER_INFO: Record<string, { name: string; color: string; bg: string }> = {
-  claude: { name: 'Claude', color: '#D97706', bg: '#FEF3C7' },
-  gemini: { name: 'Gemini', color: '#2563EB', bg: '#DBEAFE' },
-  gpt4: { name: 'GPT-5.2', color: '#10B981', bg: '#D1FAE5' },
+  claude: { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
+  gemini: { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
+  gpt4: { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
   'lern-2.1': { name: 'LERN 2.1', color: '#7c3aed', bg: '#f3e8ff' },
   'lern-1.9': { name: 'LERN 1.9.1', color: '#6d28d9', bg: '#ede9fe' },
 };
@@ -138,12 +184,14 @@ export const Dashboard = () => {
   usePageTitle('Dashboard');
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('legal');
-  const [direction, setDirection] = useState(0);
+  const [, setDirection] = useState(0);
   const [intent, setIntent] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [recentDocs, setRecentDocs] = useState<Dataset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const heroFileInputRef = useRef<HTMLInputElement>(null);
+  const [heroUploadedFiles, setHeroUploadedFiles] = useState<Array<{ name: string; uploading: boolean }>>([]);
 
   // Conversation state
   const [conversationStep, setConversationStep] = useState<ConversationStep>('idle');
@@ -158,13 +206,18 @@ export const Dashboard = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Motion mode state
+  // Jurisdiction state
+  const [jurisdictionCountry, setJurisdictionCountry] = useState('canada');
+  const [jurisdictionState, setJurisdictionState] = useState('ontario');
+
+  // Motion mode state
   const [motionMode, setMotionMode] = useState(false);
   const [motionConversation, setMotionConversation] = useState<MotionMessage[]>([]);
   const [motionInput, setMotionInput] = useState('');
   const [motionLoading, setMotionLoading] = useState(false);
   const [motionType, setMotionType] = useState('charter_s8');
-  const [motionWorkflow, setMotionWorkflow] = useState<MotionWorkflow>('refine');
-  const [creatorProvider, setCreatorProvider] = useState<MotionProvider>('gemini');
+  const [motionWorkflow] = useState<MotionWorkflow>('refine');
+  const [creatorProvider, setCreatorProvider] = useState<MotionProvider>('gpt4');
   const [refinerProvider, setRefinerProvider] = useState<MotionProvider>('claude');
   const [orchestrator, setOrchestrator] = useState<'lern-2.1' | 'lern-1.9'>('lern-2.1');
   const [motionGenerating, setMotionGenerating] = useState(false);
@@ -268,8 +321,18 @@ export const Dashboard = () => {
     }
   }, [motionMode, motionDocs.length]);
 
+  const getJurisdictionContext = () => {
+    const country = JURISDICTIONS[jurisdictionCountry];
+    const state = country?.states.find(s => s.value === jurisdictionState);
+    return `[Jurisdiction: ${country?.label || jurisdictionCountry}, ${state?.label || jurisdictionState}. Apply ${jurisdictionCountry === 'canada' ? 'Canadian' : 'US'} law for this jurisdiction.]`;
+  };
+
   const enterMotionMode = (initialMessage: string) => {
     setMotionMode(true);
+    const docsContext = heroUploadedFiles.filter(f => !f.uploading).length > 0
+      ? ` [User has uploaded these documents for reference: ${heroUploadedFiles.filter(f => !f.uploading).map(f => f.name).join(', ')}.]`
+      : '';
+    const contextMsg = `${getJurisdictionContext()}${docsContext} ${initialMessage}`;
     setMotionConversation([{ role: 'user', content: initialMessage }]);
     setMotionLoading(true);
     setMotionResult(null);
@@ -281,14 +344,14 @@ export const Dashboard = () => {
     else if (lower.includes('stay')) setMotionType('stay_of_proceedings');
     else setMotionType('charter_s8');
 
-    // Call intake
+    // Call intake with jurisdiction context
     motionIntake({
-      conversation: [{ role: 'user', content: initialMessage }],
+      conversation: [{ role: 'user', content: contextMsg }],
       motion_type: lower.includes('disclosure') ? 'disclosure' : lower.includes('stay') ? 'stay_of_proceedings' : 'charter_s8',
       provider: 'gemini',
     }).then(res => {
       if (res.ready) {
-        handleMotionReady(res, [{ role: 'user', content: initialMessage }]);
+        handleMotionReady(res, [{ role: 'user', content: contextMsg }]);
       } else {
         setMotionConversation(prev => [...prev, { role: 'assistant', content: res.question }]);
       }
@@ -296,6 +359,39 @@ export const Dashboard = () => {
       toast.error('Failed to start motion intake');
       console.error(err);
     }).finally(() => setMotionLoading(false));
+  };
+
+  // Skip remaining intake questions and generate immediately
+  const handleGenerateNow = async () => {
+    if (motionLoading || motionGenerating) return;
+    const skipMsg = 'I don\'t have more details right now. Please proceed with the information provided and use reasonable professional defaults for any missing fields. Generate the motion now.';
+    const updatedConv = [...motionConversation, { role: 'user' as const, content: skipMsg }];
+    setMotionConversation(prev => [...prev, { role: 'user', content: 'Generate with the details provided' }]);
+    setMotionLoading(true);
+
+    try {
+      const res = await motionIntake({
+        conversation: updatedConv,
+        motion_type: motionType,
+        provider: 'gemini',
+      });
+
+      if (res.ready) {
+        handleMotionReady(res, updatedConv);
+      } else {
+        // If still not ready, force generation with what we have
+        handleMotionReady({
+          case_details: { client_name: 'Client', court_location: 'Superior Court of Justice', court_file_no: 'CR-2025-00001', charges: 'As described', date_of_incident: 'As described', arresting_officer: 'Unknown' },
+          case_description: motionConversation.filter(m => m.role === 'user').map(m => m.content).join('. '),
+          motion_type: motionType,
+        }, updatedConv);
+      }
+    } catch (err) {
+      toast.error('Failed to generate');
+      console.error(err);
+    } finally {
+      setMotionLoading(false);
+    }
   };
 
   const handleMotionMessage = async (e: React.FormEvent) => {
@@ -484,6 +580,51 @@ export const Dashboard = () => {
     if (motionFileInputRef.current) motionFileInputRef.current.value = '';
   };
 
+  const handleHeroFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const newFiles = Array.from(files).map(f => ({ name: f.name, uploading: true }));
+    setHeroUploadedFiles(prev => [...prev, ...newFiles]);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'file';
+        const typeMap: Record<string, string> = {
+          pdf: 'pdf', doc: 'doc', docx: 'docx', txt: 'txt', md: 'md',
+          csv: 'csv', xlsx: 'excel', xls: 'excel', json: 'json',
+        };
+        await datasetsApi.create({ name: file.name, type: typeMap[ext] || ext, file });
+        setHeroUploadedFiles(prev => prev.map(f => f.name === file.name ? { ...f, uploading: false } : f));
+        toast.success(`Uploaded ${file.name}`);
+      } catch {
+        setHeroUploadedFiles(prev => prev.filter(f => f.name !== file.name));
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+    // Refresh recent docs
+    try {
+      const res = await datasetsApi.list();
+      const sorted = res.results
+        .sort((a: Dataset, b: Dataset) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+        .slice(0, 10);
+      setRecentDocs(sorted);
+    } catch {}
+    if (heroFileInputRef.current) heroFileInputRef.current.value = '';
+  };
+
+  // Build context prefix with jurisdiction and uploaded docs
+  const buildContextPrefix = () => {
+    const parts: string[] = [];
+    if (activeTab === 'legal') {
+      parts.push(getJurisdictionContext());
+    }
+    if (heroUploadedFiles.filter(f => !f.uploading).length > 0) {
+      const docNames = heroUploadedFiles.filter(f => !f.uploading).map(f => f.name).join(', ');
+      parts.push(`[User has uploaded these documents for reference: ${docNames}. Analyze them in context of the request.]`);
+    }
+    return parts.length > 0 ? parts.join(' ') + ' ' : '';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const query = intent.trim();
@@ -501,10 +642,12 @@ export const Dashboard = () => {
     setIntent('');
     setStreamingText('');
 
+    const contextQuery = buildContextPrefix() + query;
+
     setTimeout(() => {
       setConversationStep('gemini_streaming');
       abortControllerRef.current = generateStream(
-        { prompt: query, provider: 'gemini', max_tokens: 8000 },
+        { prompt: contextQuery, provider: 'gemini', max_tokens: 8000 },
         {
           onToken: (token) => setStreamingText((prev) => prev + token),
           onDone: (fullText) => {
@@ -616,94 +759,8 @@ Please provide an improved, refined response that addresses the user's feedback 
     }
   };
 
-  const legalTools = [
-    {
-      title: 'Draft Motions',
-      description: 'Charter s.8, Disclosure, Stay of Proceedings with multi-model AI drafting.',
-      link: '/legal?tool=motion',
-      bullets: ['Charter s.8 & constitutional motions', 'Multi-model AI drafting', 'Case law integration'],
-      icon: (
-        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Analyze Documents',
-      description: 'Extract risks, obligations, and compliance gaps from contracts and disclosures.',
-      link: '/legal?tool=analysis',
-      bullets: ['Risk & obligation extraction', 'Compliance gap analysis', 'Multi-provider comparison'],
-      icon: (
-        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Compare & Research',
-      description: 'Cross-reference documents to find patterns, contradictions, and enrichment.',
-      link: '/legal?tool=compare',
-      bullets: ['Cross-document pattern detection', 'Contradiction finder', 'Enrichment analysis'],
-      icon: (
-        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-        </svg>
-      ),
-    },
-  ];
-
-  const dataTools = [
-    {
-      title: 'AI Data Insights',
-      description: 'Upload CSV, Excel, JSON for AI-powered analysis, bias detection, and ML readiness.',
-      link: '/data',
-      bullets: ['Multi-provider analysis', 'Data quality & bias detection', 'ML readiness assessment'],
-      icon: (
-        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Train Models',
-      description: 'Build predictive models from datasets with one-click training and algorithm selection.',
-      link: '/data',
-      bullets: ['Automated feature engineering', 'Multiple algorithm options', 'Train/test configuration'],
-      icon: (
-        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-      ),
-    },
-    {
-      title: 'Enrich & Compare',
-      description: 'Merge datasets, find correlations, and discover enrichment opportunities.',
-      link: '/data?tool=compare',
-      bullets: ['Cross-dataset correlation', 'Schema compatibility', 'FRED economic integration'],
-      icon: (
-        <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-        </svg>
-      ),
-    },
-  ];
-
-  const tools = activeTab === 'legal' ? legalTools : dataTools;
   const suggestions = activeTab === 'legal' ? legalSuggestions : dataSuggestions;
-  const accent = activeTab === 'legal' ? '#0d9488' : '#0d9488';
-  const lightBg = activeTab === 'legal' ? '#f0fdfa' : '#f0fdfa';
-
-  const filteredRecent = recentDocs.filter((doc) => {
-    const fileType = doc.type?.toLowerCase() || '';
-    if (activeTab === 'legal') return DOCUMENT_TYPES.includes(fileType);
-    return DATA_TYPES.includes(fileType);
-  }).slice(0, 4);
-
-  const slideVariants = {
-    enter: (dir: number) => ({ x: dir > 0 ? 280 : -280, opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (dir: number) => ({ x: dir > 0 ? -280 : 280, opacity: 0 }),
-  };
+  const accent = activeTab === 'legal' ? '#475569' : '#0d9488';
 
   const isConversationActive = conversationStep !== 'idle' || motionMode;
   const isRegularConversation = conversationStep !== 'idle' && !motionMode;
@@ -716,9 +773,177 @@ Please provide an improved, refined response that addresses the user's feedback 
     : motionResult;
 
   return (
-    <div style={{ minHeight: '100vh', fontFamily: '"Outfit", sans-serif' }}>
+    <div style={{ minHeight: '100vh', height: '100vh', fontFamily: '"DM Sans", "Outfit", sans-serif', display: 'flex', width: '100%' }}>
+      {/* ── Left Sidebar ── */}
+      <aside style={{
+        width: '272px', flexShrink: 0, background: '#fff', borderRight: '1px solid #e5e7eb',
+        display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0,
+        fontFamily: '"DM Sans", sans-serif',
+      }}>
+        {/* Logo */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '10px',
+              background: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{ color: '#fff', fontWeight: 800, fontSize: '14px', letterSpacing: '-0.03em' }}>L</span>
+            </div>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>LERN</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>v1.2.1</div>
+            </div>
+          </div>
+        </div>
+
+        {/* New Conversation button */}
+        <div style={{ padding: '12px 16px 8px' }}>
+          <button
+            onClick={motionMode ? resetMotionMode : resetConversation}
+            style={{
+              width: '100%', padding: '10px 14px', fontSize: '13px', fontWeight: 600,
+              background: '#0f172a', color: '#fff', border: 'none', borderRadius: '10px',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New Conversation
+          </button>
+        </div>
+
+        {/* Conversations section */}
+        <div style={{ padding: '8px 16px 4px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>
+            Recent
+          </div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
+          {/* Demo conversation history items */}
+          {[
+            { title: 'Charter s.8 — R v. Thompson', time: '2h ago', icon: 'doc' },
+            { title: 'Disclosure Application — File #2847', time: '5h ago', icon: 'doc' },
+            { title: 'Stay of Proceedings Brief', time: '1d ago', icon: 'doc' },
+            { title: 'Contract Risk Analysis — NDA v3', time: '2d ago', icon: 'search' },
+            { title: 'Sales Data Correlation Report', time: '3d ago', icon: 'chart' },
+          ].map((conv, i) => (
+            <motion.button
+              key={i}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 + i * 0.04 }}
+              style={{
+                width: '100%', textAlign: 'left', padding: '10px 12px', background: 'transparent',
+                border: 'none', borderRadius: '8px', cursor: 'pointer', marginBottom: '2px',
+                display: 'flex', alignItems: 'flex-start', gap: '10px',
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#f8fafc'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" strokeWidth={1.5} style={{ flexShrink: 0, marginTop: '2px' }}>
+                {conv.icon === 'doc' && <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />}
+                {conv.icon === 'search' && <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />}
+                {conv.icon === 'chart' && <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />}
+              </svg>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: '13px', fontWeight: 500, color: '#374151', lineHeight: 1.4,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{conv.title}</div>
+                <div style={{ fontSize: '11px', color: '#b0b8c4', marginTop: '2px' }}>{conv.time}</div>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+
+        {/* Documents section */}
+        <div style={{ borderTop: '1px solid #f1f5f9', padding: '12px 16px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Documents
+            </div>
+            <button
+              onClick={() => motionFileInputRef.current?.click()}
+              style={{ padding: '2px 6px', fontSize: '10px', fontWeight: 600, background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ede9fe', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              + Add
+            </button>
+          </div>
+          <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+            {recentDocs.length > 0 ? recentDocs.slice(0, 6).map((doc) => (
+              <div key={doc.id} style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px',
+                borderRadius: '6px', marginBottom: '2px', cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#f8fafc'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                onClick={() => navigate(DOCUMENT_TYPES.includes(doc.type?.toLowerCase()) ? '/legal' : '/data')}
+              >
+                <div style={{
+                  width: '24px', height: '24px', borderRadius: '6px', flexShrink: 0,
+                  background: DOCUMENT_TYPES.includes(doc.type?.toLowerCase()) ? '#f1f5f9' : '#f0fdfa',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke={DOCUMENT_TYPES.includes(doc.type?.toLowerCase()) ? '#475569' : '#0d9488'} strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: 500, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                </div>
+                <span style={{ fontSize: '9px', fontWeight: 600, color: '#94a3b8', background: '#f1f5f9', padding: '2px 5px', borderRadius: '4px' }}>
+                  {formatFileType(doc.type)}
+                </span>
+              </div>
+            )) : (
+              <div style={{ fontSize: '12px', color: '#b0b8c4', padding: '8px', textAlign: 'center' }}>No documents yet</div>
+            )}
+          </div>
+        </div>
+
+        {/* LERN Assistant - Coming Soon */}
+        <div style={{ padding: '12px 16px 16px', borderTop: '1px solid #f1f5f9' }}>
+          <button style={{
+            width: '100%', padding: '12px 14px', fontSize: '13px', fontWeight: 600,
+            background: 'linear-gradient(135deg, #f8fafc, #f1f5f9)', color: '#64748b',
+            border: '1px solid #e2e8f0', borderRadius: '10px', cursor: 'default',
+            display: 'flex', alignItems: 'center', gap: '10px',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{
+              width: '28px', height: '28px', borderRadius: '8px',
+              background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+            </div>
+            <div style={{ flex: 1, textAlign: 'left' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>LERN Assistant</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>Calendar, Tasks, Reminders</div>
+            </div>
+            <span style={{
+              position: 'absolute', top: '6px', right: '8px',
+              fontSize: '8px', fontWeight: 700, color: '#7c3aed', background: '#f5f3ff',
+              padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.04em',
+              textTransform: 'uppercase', border: '1px solid #ede9fe',
+            }}>
+              Coming Soon
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Main Content Area ── */}
+      <div style={{ flex: 1, minWidth: 0, overflow: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Instrument+Serif:ital@0;1&display=swap');
 
         @keyframes gradient-rotate {
           0% { background-position: 0% 50%; }
@@ -726,7 +951,7 @@ Please provide an improved, refined response that addresses the user's feedback 
           100% { background-position: 0% 50%; }
         }
         @keyframes float-in {
-          from { opacity: 0; transform: translateY(8px); }
+          from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
         }
         @keyframes progress-shimmer {
@@ -737,17 +962,72 @@ Please provide an improved, refined response that addresses the user's feedback 
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.4; transform: scale(0.8); }
         }
+        @keyframes orb-drift {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          25% { transform: translate(30px, -20px) scale(1.05); }
+          50% { transform: translate(-10px, 15px) scale(0.98); }
+          75% { transform: translate(20px, 10px) scale(1.02); }
+        }
+        @keyframes orb-drift-2 {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          33% { transform: translate(-25px, 20px) scale(1.03); }
+          66% { transform: translate(15px, -15px) scale(0.97); }
+        }
+        @keyframes subtle-glow {
+          0%, 100% { opacity: 0.5; }
+          50% { opacity: 0.8; }
+        }
+        @keyframes input-shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
 
         .hero-section {
           position: relative;
           overflow: hidden;
         }
-        .hero-section::before {
-          content: '';
+
+        .hero-orb {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px);
+          pointer-events: none;
+          will-change: transform;
+        }
+        .hero-orb-1 {
+          width: 400px;
+          height: 400px;
+          top: -120px;
+          left: -80px;
+          background: radial-gradient(circle, rgba(13, 148, 136, 0.15) 0%, transparent 70%);
+          animation: orb-drift 12s ease-in-out infinite;
+        }
+        .hero-orb-2 {
+          width: 300px;
+          height: 300px;
+          top: -40px;
+          right: -60px;
+          background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+          animation: orb-drift-2 10s ease-in-out infinite;
+        }
+        .hero-orb-3 {
+          width: 200px;
+          height: 200px;
+          bottom: -80px;
+          left: 40%;
+          background: radial-gradient(circle, rgba(13, 148, 136, 0.08) 0%, transparent 70%);
+          animation: orb-drift 15s ease-in-out infinite reverse;
+        }
+
+        .hero-grid-pattern {
           position: absolute;
           inset: 0;
-          background: radial-gradient(ellipse at 30% 20%, rgba(13, 148, 136, 0.06) 0%, transparent 50%),
-                      radial-gradient(ellipse at 70% 80%, rgba(75, 85, 99, 0.03) 0%, transparent 50%);
+          background-image:
+            linear-gradient(rgba(13, 148, 136, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(13, 148, 136, 0.03) 1px, transparent 1px);
+          background-size: 48px 48px;
+          mask-image: radial-gradient(ellipse at 50% 50%, black 30%, transparent 70%);
+          -webkit-mask-image: radial-gradient(ellipse at 50% 50%, black 30%, transparent 70%);
           pointer-events: none;
         }
 
@@ -755,19 +1035,20 @@ Please provide an improved, refined response that addresses the user's feedback 
           position: relative;
           border-radius: 20px;
           padding: 2px;
-          background: linear-gradient(135deg, #0d9488, #4b5563, #0d9488, #4b5563);
+          background: linear-gradient(135deg, #0d9488, #6366f1, #0d9488, #475569);
           background-size: 300% 300%;
-          animation: gradient-rotate 6s ease infinite;
+          animation: gradient-rotate 8s ease infinite;
         }
         .input-wrapper.focused {
-          box-shadow: 0 0 40px rgba(13, 148, 136, 0.15), 0 0 80px rgba(75, 85, 99, 0.06);
+          box-shadow: 0 0 60px rgba(13, 148, 136, 0.2), 0 0 120px rgba(99, 102, 241, 0.06);
         }
         .input-inner {
-          background: #fff;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(20px);
           border-radius: 18px;
           display: flex;
           align-items: center;
-          padding: 6px 6px 6px 20px;
+          padding: 6px 6px 6px 22px;
           gap: 12px;
         }
         .hero-input {
@@ -775,23 +1056,24 @@ Please provide an improved, refined response that addresses the user's feedback 
           border: none;
           outline: none;
           background: transparent;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 16px;
           font-weight: 400;
-          color: #111827;
-          padding: 14px 0;
+          color: #0f172a;
+          padding: 16px 0;
           min-width: 0;
+          letter-spacing: -0.01em;
         }
         .hero-input::placeholder {
-          color: #9ca3af;
+          color: #94a3b8;
           font-weight: 400;
         }
 
         .go-btn {
           border: none;
           border-radius: 14px;
-          padding: 14px 28px;
-          font-family: 'Outfit', sans-serif;
+          padding: 16px 24px;
+          font-family: 'DM Sans', sans-serif;
           font-size: 15px;
           font-weight: 600;
           color: #fff;
@@ -800,55 +1082,60 @@ Please provide an improved, refined response that addresses the user's feedback 
           align-items: center;
           gap: 8px;
           flex-shrink: 0;
-          transition: all 0.2s ease;
-          background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          background: #0f172a;
         }
         .go-btn:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 20px rgba(13, 148, 136, 0.35);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 30px rgba(15, 23, 42, 0.3);
+          background: #1e293b;
         }
 
         .chip {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 8px 14px;
+          gap: 7px;
+          padding: 9px 16px;
           border-radius: 100px;
-          border: 1px solid #e5e7eb;
-          background: #fff;
-          font-family: 'Outfit', sans-serif;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(10px);
+          font-family: 'DM Sans', sans-serif;
           font-size: 13px;
           font-weight: 500;
-          color: #374151;
+          color: #475569;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           white-space: nowrap;
-          animation: float-in 0.4s ease backwards;
+          animation: float-in 0.5s ease backwards;
+          letter-spacing: -0.01em;
         }
         .chip:hover {
-          border-color: #0d9488;
+          border-color: rgba(13, 148, 136, 0.4);
           color: #0d9488;
-          background: #f0fdfa;
-          transform: translateY(-1px);
-          box-shadow: 0 2px 8px rgba(13, 148, 136, 0.1);
+          background: rgba(240, 253, 250, 0.9);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 16px rgba(13, 148, 136, 0.12);
         }
 
         .toggle-track {
           display: flex;
           padding: 4px;
-          background: #f3f4f6;
+          background: rgba(241, 245, 249, 0.8);
+          backdrop-filter: blur(10px);
           border-radius: 14px;
           position: relative;
           width: fit-content;
           margin: 0 auto;
+          border: 1px solid rgba(226, 232, 240, 0.5);
         }
         .toggle-btn {
           position: relative;
           z-index: 1;
-          padding: 10px 28px;
+          padding: 11px 32px;
           border: none;
           background: transparent;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
@@ -856,8 +1143,9 @@ Please provide an improved, refined response that addresses the user's feedback 
           align-items: center;
           gap: 8px;
           border-radius: 10px;
-          transition: color 0.25s ease;
-          color: #6b7280;
+          transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          color: #94a3b8;
+          letter-spacing: -0.01em;
         }
         .toggle-btn.active { color: #fff; }
         .toggle-indicator {
@@ -869,55 +1157,61 @@ Please provide an improved, refined response that addresses the user's feedback 
         }
 
         .tool-card {
-          background: #fff;
-          border-radius: 16px;
-          padding: 24px;
-          border: 1px solid #e5e7eb;
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(20px);
+          border-radius: 20px;
+          padding: 28px;
+          border: 1px solid rgba(226, 232, 240, 0.6);
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           position: relative;
           overflow: hidden;
         }
         .tool-card::before {
           content: '';
           position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 3px;
-          background: linear-gradient(90deg, #0d9488, #4b5563);
+          inset: 0;
+          border-radius: 20px;
+          padding: 1px;
+          background: linear-gradient(135deg, transparent 40%, rgba(13, 148, 136, 0.2) 60%, transparent 80%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
           opacity: 0;
-          transition: opacity 0.2s ease;
+          transition: opacity 0.3s ease;
+          pointer-events: none;
         }
         .tool-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
-          border-color: transparent;
+          transform: translateY(-6px);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), 0 4px 20px rgba(13, 148, 136, 0.06);
+          border-color: rgba(13, 148, 136, 0.15);
+          background: rgba(255, 255, 255, 0.9);
         }
         .tool-card:hover::before {
           opacity: 1;
         }
         .tool-card .arrow-icon {
-          transition: transform 0.2s ease;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .tool-card:hover .arrow-icon {
-          transform: translateX(4px);
+          transform: translateX(6px);
+          color: #0d9488;
         }
 
         .recent-row {
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .recent-row:hover {
-          background: #f9fafb;
+          background: rgba(248, 250, 252, 0.8);
         }
 
         .step-card {
-          transition: all 0.2s ease;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .step-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+          transform: translateY(-4px);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.06);
         }
 
         .progress-track {
@@ -940,7 +1234,7 @@ Please provide an improved, refined response that addresses the user's feedback 
           border: none;
           outline: none;
           background: transparent;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 14px;
           font-weight: 400;
           color: #111827;
@@ -955,7 +1249,7 @@ Please provide an improved, refined response that addresses the user's feedback 
           border: none;
           border-radius: 10px;
           padding: 10px 20px;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 13px;
           font-weight: 600;
           color: #fff;
@@ -977,7 +1271,7 @@ Please provide an improved, refined response that addresses the user's feedback 
           border-radius: 100px;
           border: 1px solid #fbbf24;
           background: #fffbeb;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 12px;
           font-weight: 500;
           color: #92400e;
@@ -994,7 +1288,7 @@ Please provide an improved, refined response that addresses the user's feedback 
           border: 1px solid #e5e7eb;
           border-radius: 10px;
           padding: 10px 20px;
-          font-family: 'Outfit', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 13px;
           font-weight: 600;
           color: #6b7280;
@@ -1035,10 +1329,10 @@ Please provide an improved, refined response that addresses the user's feedback 
           font-family: 'SF Mono', 'Fira Code', monospace;
         }
         .prose pre {
-          background: #1f2937;
-          color: #e5e7eb;
+          background: #0f172a;
+          color: #e2e8f0;
           padding: 14px 16px;
-          border-radius: 8px;
+          border-radius: 10px;
           overflow-x: auto;
           margin: 12px 0;
           font-size: 13px;
@@ -1063,6 +1357,27 @@ Please provide an improved, refined response that addresses the user's feedback 
         }
         .prose a { color: #0d9488; text-decoration: underline; }
 
+        .version-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 12px 4px 8px;
+          border-radius: 100px;
+          background: rgba(13, 148, 136, 0.08);
+          border: 1px solid rgba(13, 148, 136, 0.15);
+          font-size: 12px;
+          font-weight: 500;
+          color: #0d9488;
+          letter-spacing: 0.02em;
+        }
+        .version-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #0d9488;
+          animation: subtle-glow 2s ease-in-out infinite;
+        }
+
         @media (max-width: 900px) {
           .tools-grid { grid-template-columns: 1fr !important; }
           .chips-row { flex-wrap: wrap !important; }
@@ -1077,43 +1392,88 @@ Please provide an improved, refined response that addresses the user's feedback 
         {!isConversationActive && (
           <motion.div
             key="hero"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20, height: 0, overflow: 'hidden' }}
-            transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -30, height: 0, overflow: 'hidden' }}
+            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+            style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}
           >
             <div className="hero-section" style={{
-              padding: '40px 32px 36px',
-              background: 'linear-gradient(180deg, #f0fdfa 0%, #e6fffa 100%)',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '52px 32px 44px',
+              background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 40%, #e2e8f0 100%)',
               transition: 'background 0.3s ease',
-              borderBottom: '1px solid #e2e8f0',
             }}>
-              <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+              {/* Floating orbs */}
+              <div className="hero-orb hero-orb-1" />
+              <div className="hero-orb hero-orb-2" />
+              <div className="hero-orb hero-orb-3" />
+              {/* Grid pattern */}
+              <div className="hero-grid-pattern" />
+
+              <div style={{ maxWidth: '720px', width: '100%', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+                {/* Version pill */}
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  style={{ marginBottom: '20px' }}
+                >
+                  <span className="version-pill">
+                    <span className="version-dot" />
+                    LERN v1.2.1
+                  </span>
+                </motion.div>
+
                 {/* Title */}
-                <h1 style={{
-                  fontSize: '32px',
-                  fontWeight: 800,
-                  color: '#0f172a',
-                  margin: '0 0 4px 0',
-                  letterSpacing: '-0.02em',
-                }}>
-                  What are you working on?
-                </h1>
-                <p style={{
-                  fontSize: '15px',
-                  color: '#64748b',
-                  margin: '0 0 24px 0',
-                }}>
-                  Powered by <span style={{
-                    fontWeight: 700,
-                    background: 'linear-gradient(135deg, #0d9488, #4b5563)',
+                <motion.h1
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  style={{
+                    fontSize: '42px',
+                    fontWeight: 300,
+                    color: '#0f172a',
+                    margin: '0 0 8px 0',
+                    letterSpacing: '-0.03em',
+                    lineHeight: 1.1,
+                    fontFamily: '"Instrument Serif", Georgia, serif',
+                  }}
+                >
+                  What are you{' '}
+                  <span style={{
+                    fontStyle: 'italic',
+                    background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
-                  }}>LERN v1.2.1</span>
-                </p>
+                  }}>working on</span>?
+                </motion.h1>
+                <motion.p
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 }}
+                  style={{
+                    fontSize: '15px',
+                    color: '#64748b',
+                    margin: '0 0 28px 0',
+                    fontWeight: 400,
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  AI-powered legal drafting and data analysis
+                </motion.p>
 
                 {/* Toggle */}
-                <div style={{ marginBottom: '24px' }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.35 }}
+                  style={{ marginBottom: '28px' }}
+                >
                   <div className="toggle-track">
                     <motion.div
                       className="toggle-indicator"
@@ -1122,8 +1482,12 @@ Please provide an improved, refined response that addresses the user's feedback 
                         width: 'calc(50% - 4px)',
                       }}
                       style={{
-                        background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)',
-                        boxShadow: '0 2px 12px rgba(13, 148, 136, 0.35)',
+                        background: activeTab === 'legal'
+                          ? 'linear-gradient(135deg, #334155 0%, #475569 100%)'
+                          : 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
+                        boxShadow: activeTab === 'legal'
+                          ? '0 4px 16px rgba(51, 65, 85, 0.35)'
+                          : '0 4px 16px rgba(13, 148, 136, 0.35)',
                       }}
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />
@@ -1131,7 +1495,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       className={`toggle-btn ${activeTab === 'legal' ? 'active' : ''}`}
                       onClick={() => switchTab('legal')}
                     >
-                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
                       </svg>
                       Legal
@@ -1140,74 +1504,153 @@ Please provide an improved, refined response that addresses the user's feedback 
                       className={`toggle-btn ${activeTab === 'data' ? 'active' : ''}`}
                       onClick={() => switchTab('data')}
                     >
-                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                       Data
                     </button>
                   </div>
-                </div>
+                </motion.div>
+
+                {/* Jurisdiction dropdowns — legal mode only */}
+                {activeTab === 'legal' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.38 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', justifyContent: 'center' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#64748b" strokeWidth={1.5} style={{ flexShrink: 0 }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+                      </svg>
+                      <select
+                        value={jurisdictionCountry}
+                        onChange={(e) => {
+                          setJurisdictionCountry(e.target.value);
+                          setJurisdictionState(JURISDICTIONS[e.target.value]?.states[0]?.value || '');
+                        }}
+                        style={{
+                          appearance: 'none',
+                          background: 'rgba(255,255,255,0.8)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          padding: '7px 28px 7px 12px',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          color: '#334155',
+                          cursor: 'pointer',
+                          fontFamily: '"DM Sans", sans-serif',
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 8px center',
+                        }}
+                      >
+                        {Object.entries(JURISDICTIONS).map(([key, j]) => (
+                          <option key={key} value={key}>{j.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#64748b" strokeWidth={1.5} style={{ flexShrink: 0 }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                      </svg>
+                      <select
+                        value={jurisdictionState}
+                        onChange={(e) => setJurisdictionState(e.target.value)}
+                        style={{
+                          appearance: 'none',
+                          background: 'rgba(255,255,255,0.8)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          padding: '7px 28px 7px 12px',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          color: '#334155',
+                          cursor: 'pointer',
+                          fontFamily: '"DM Sans", sans-serif',
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 8px center',
+                        }}
+                      >
+                        {JURISDICTIONS[jurisdictionCountry]?.states.map(s => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Input */}
-                <form onSubmit={handleSubmit}>
-                  <div className={`input-wrapper ${isFocused ? 'focused' : ''}`}>
-                    <div className="input-inner">
-                      <AnimatePresence mode="wait">
-                        <motion.span
-                          key={activeTab}
-                          initial={{ scale: 0.5, opacity: 0, rotate: -20 }}
-                          animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                          exit={{ scale: 0.5, opacity: 0, rotate: 20 }}
-                          transition={{ duration: 0.2 }}
-                          style={{ color: accent, display: 'flex', flexShrink: 0 }}
-                        >
-                          {activeTab === 'legal' ? (
-                            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                            </svg>
-                          ) : (
-                            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                          )}
-                        </motion.span>
-                      </AnimatePresence>
-                      <input
-                        ref={inputRef}
-                        className="hero-input"
-                        type="text"
-                        value={intent}
-                        onChange={(e) => setIntent(e.target.value)}
-                        onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
-                        placeholder={
-                          activeTab === 'legal'
-                            ? 'Draft a motion, analyze a contract, compare disclosures...'
-                            : 'Analyze sales data, find anomalies, train a model...'
-                        }
-                      />
-                      <button type="submit" className="go-btn">
-                        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                        </svg>
-                      </button>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.4 }}
+                >
+                  <form onSubmit={handleSubmit}>
+                    <div className={`input-wrapper ${isFocused ? 'focused' : ''}`}>
+                      <div className="input-inner">
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={activeTab}
+                            initial={{ scale: 0.5, opacity: 0, rotate: -20 }}
+                            animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                            exit={{ scale: 0.5, opacity: 0, rotate: 20 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ color: accent, display: 'flex', flexShrink: 0 }}
+                          >
+                            {activeTab === 'legal' ? (
+                              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                              </svg>
+                            ) : (
+                              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                            )}
+                          </motion.span>
+                        </AnimatePresence>
+                        <input
+                          ref={inputRef}
+                          className="hero-input"
+                          type="text"
+                          value={intent}
+                          onChange={(e) => setIntent(e.target.value)}
+                          onFocus={() => setIsFocused(true)}
+                          onBlur={() => setIsFocused(false)}
+                          placeholder={
+                            activeTab === 'legal'
+                              ? 'Draft a motion, analyze a contract, compare disclosures...'
+                              : 'Analyze sales data, find anomalies, train a model...'
+                          }
+                        />
+                        <button type="submit" className="go-btn">
+                          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </form>
+                  </form>
+                </motion.div>
 
                 {/* Suggestion Chips */}
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={activeTab + '-chips'}
-                    initial={{ opacity: 0, y: 6 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.2, delay: 0.1 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.3, delay: 0.5 }}
                     className="chips-row"
                     style={{
                       display: 'flex',
-                      gap: '8px',
-                      marginTop: '16px',
+                      gap: '10px',
+                      marginTop: '20px',
                       justifyContent: 'center',
                       flexWrap: 'wrap',
                     }}
@@ -1217,9 +1660,9 @@ Please provide an improved, refined response that addresses the user's feedback 
                         key={s.label}
                         className="chip"
                         onClick={() => handleSuggestion(s.label, s.tool)}
-                        style={{ animationDelay: `${i * 0.06}s` }}
+                        style={{ animationDelay: `${0.5 + i * 0.08}s` }}
                       >
-                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke={accent} strokeWidth={1.5} style={{ opacity: 0.6 }}>
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke={accent} strokeWidth={1.5} style={{ opacity: 0.5 }}>
                           {s.icon === 'doc' && <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />}
                           {s.icon === 'search' && <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />}
                           {s.icon === 'compare' && <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />}
@@ -1230,6 +1673,71 @@ Please provide an improved, refined response that addresses the user's feedback 
                     ))}
                   </motion.div>
                 </AnimatePresence>
+
+                {/* Add context / documents button + uploaded files */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.4, delay: 0.6 }}
+                  style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}
+                >
+                  <input
+                    ref={heroFileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.json"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleHeroFileUpload(e.target.files)}
+                  />
+                  <button
+                    onClick={() => heroFileInputRef.current?.click()}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '9px 20px', fontSize: '13px', fontWeight: 500,
+                      background: 'transparent', color: '#7c3aed',
+                      border: '1.5px dashed #c4b5fd', borderRadius: '10px', cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f5f3ff'; e.currentTarget.style.borderColor = '#7c3aed'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#c4b5fd'; }}
+                  >
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add context or documents
+                  </button>
+
+                  {/* Uploaded files display */}
+                  {heroUploadedFiles.length > 0 && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center', maxWidth: '600px' }}>
+                      {heroUploadedFiles.map((f, i) => (
+                        <div key={i} style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          padding: '5px 10px', fontSize: '12px', fontWeight: 500,
+                          background: f.uploading ? '#f9fafb' : '#f5f3ff',
+                          color: f.uploading ? '#9ca3af' : '#6d28d9',
+                          border: `1px solid ${f.uploading ? '#e5e7eb' : '#ddd6fe'}`,
+                          borderRadius: '8px',
+                        }}>
+                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          {f.name.length > 25 ? f.name.slice(0, 22) + '...' : f.name}
+                          {f.uploading && (
+                            <div style={{ width: '12px', height: '12px', border: '2px solid #e5e7eb', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                          )}
+                          {!f.uploading && (
+                            <button onClick={() => setHeroUploadedFiles(prev => prev.filter((_, idx) => idx !== i))} style={{
+                              background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: '#9ca3af',
+                            }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
               </div>
             </div>
           </motion.div>
@@ -1245,6 +1753,7 @@ Please provide an improved, refined response that addresses the user's feedback 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
+            style={{ width: '100%' }}
           >
             <div style={{ display: 'flex', maxWidth: '1200px', margin: '0 auto', padding: '32px 24px 24px', gap: '24px' }}>
               {/* Main conversation column */}
@@ -1255,6 +1764,99 @@ Please provide an improved, refined response that addresses the user's feedback 
                     Motion Drafter
                   </p>
                 </motion.div>
+
+                {/* Document prompt — shows at start before intake begins */}
+                {motionConversation.length <= 1 && !motionGenerating && motionGenStep !== 'done' && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                    <div style={{
+                      borderRadius: '14px', border: '1px solid #e2e8f0', padding: '24px', background: '#fff',
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+                    }}>
+                      {/* Prompt question */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+                        <div style={{
+                          width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+                          background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
+                            Do you have any documents to reference?
+                          </div>
+                          <p style={{ fontSize: '13px', color: '#6b7280', margin: 0, lineHeight: 1.5 }}>
+                            Upload a police report, disclosure package, complaint, or any relevant case document. LERN will analyze it to produce a stronger, more accurate motion. You can also proceed without documents.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Existing documents */}
+                      {motionDocs.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>Your documents</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxHeight: '140px', overflowY: 'auto' }}>
+                            {motionDocs.map(doc => {
+                              const sel = motionSelectedDocs.includes(doc.id);
+                              return (
+                                <button key={doc.id} onClick={() => setMotionSelectedDocs(prev => sel ? prev.filter(id => id !== doc.id) : [...prev, doc.id])} style={{
+                                  display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', background: sel ? '#f5f3ff' : '#f9fafb',
+                                  border: `1.5px solid ${sel ? '#7c3aed' : '#e5e7eb'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'left', fontSize: '12px',
+                                  transition: 'all 0.15s ease',
+                                }}>
+                                  <div style={{
+                                    width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
+                                    border: `2px solid ${sel ? '#7c3aed' : '#d1d5db'}`, background: sel ? '#7c3aed' : '#fff',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  }}>
+                                    {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                  </div>
+                                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={1.5} style={{ flexShrink: 0 }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: sel ? 600 : 400, color: '#374151' }}>{doc.name}</span>
+                                  <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 500 }}>{doc.type?.toUpperCase()}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Upload area */}
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#7c3aed'; }}
+                        onDragLeave={(e) => { e.currentTarget.style.borderColor = '#d1d5db'; }}
+                        onDrop={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#d1d5db'; handleMotionFileUpload(e.dataTransfer.files); }}
+                        onClick={() => motionFileInputRef.current?.click()}
+                        style={{
+                          border: '2px dashed #d1d5db', borderRadius: '10px', padding: '16px', textAlign: 'center', cursor: 'pointer',
+                          background: '#fafafa', transition: 'border-color 0.2s', marginBottom: '12px',
+                        }}
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ margin: '0 auto 6px' }}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>Drop files or <span style={{ color: '#7c3aed', fontWeight: 600 }}>browse</span></div>
+                        <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>PDF, DOC, TXT, MD</div>
+                      </div>
+
+                      {/* Selection count */}
+                      {motionSelectedDocs.length > 0 && (
+                        <div style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 600, marginBottom: '8px' }}>
+                          {motionSelectedDocs.length} document{motionSelectedDocs.length > 1 ? 's' : ''} selected as reference
+                        </div>
+                      )}
+
+                      {/* Proceed without docs */}
+                      <div style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', marginTop: '4px' }}>
+                        No documents? Just describe your case in the chat below.
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Chat messages */}
                 {motionConversation.map((msg, i) => (
@@ -1309,12 +1911,12 @@ Please provide an improved, refined response that addresses the user's feedback 
                   <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} style={{ padding: '24px 0' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '400px', margin: '0 auto' }}>
                       {[
-                        { key: 'creating', label: `Creating draft with ${PROVIDER_INFO[creatorProvider].name}`, provider: creatorProvider },
-                        ...(motionWorkflow === 'refine' ? [{ key: 'refining', label: `Refining with ${PROVIDER_INFO[refinerProvider].name}`, provider: refinerProvider }] : []),
+                        { key: 'creating', label: 'Analyzing case & drafting motion' },
+                        ...(motionWorkflow === 'refine' ? [{ key: 'refining', label: 'Enhancing & strengthening arguments' }] : []),
                       ].map((step, idx) => {
                         const isActive = step.key === motionGenStep;
                         const isComplete = (step.key === 'creating' && motionGenStep === 'refining');
-                        const providerColor = PROVIDER_INFO[step.provider]?.color || '#6b7280';
+                        const providerColor = '#7c3aed';
                         return (
                           <div key={step.key}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -1354,29 +1956,52 @@ Please provide an improved, refined response that addresses the user's feedback 
                   <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
                     {/* Workflow tabs for refine mode */}
                     {motionRefineResult && (
-                      <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', padding: '3px', background: '#f3f4f6', borderRadius: '10px' }}>
-                        {[
-                          { key: 'initial', label: `Initial (${PROVIDER_INFO[creatorProvider].name})`, provider: creatorProvider },
-                          { key: 'refined', label: `Refined (${PROVIDER_INFO[refinerProvider].name})`, provider: refinerProvider },
-                        ].map(tab => (
-                          <button key={tab.key} onClick={() => setMotionActiveTab(tab.key)} style={{
-                            flex: 1, padding: '8px 14px', fontSize: '13px', fontWeight: 600,
-                            background: motionActiveTab === tab.key ? '#fff' : 'transparent',
-                            color: motionActiveTab === tab.key ? PROVIDER_INFO[tab.provider].color : '#6b7280',
-                            border: 'none', borderRadius: '8px', cursor: 'pointer',
-                            boxShadow: motionActiveTab === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                          }}>
-                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: PROVIDER_INFO[tab.provider].color, display: 'inline-block', marginRight: '6px' }} />
-                            {tab.label}
-                          </button>
-                        ))}
-                      </div>
+                      <>
+                        <div style={{ marginBottom: '16px', padding: '12px 16px', background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                          <div style={{ fontWeight: 600, fontSize: '13px', color: '#166534', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            Two versions generated — choose one to continue building
+                          </div>
+                          <p style={{ fontSize: '12px', color: '#15803d', margin: 0, lineHeight: 1.5 }}>Select a version below to keep iterating. You can enhance again at any time.</p>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                          {[
+                            { key: 'initial', label: 'Version A', sublabel: 'Initial draft' },
+                            { key: 'refined', label: 'Version B', sublabel: 'Enhanced version' },
+                          ].map(tab => {
+                            const isSelected = motionActiveTab === tab.key;
+                            const accentColor = '#7c3aed';
+                            return (
+                              <button key={tab.key} onClick={() => setMotionActiveTab(tab.key)} style={{
+                                padding: '14px 16px', fontSize: '13px', fontWeight: 600,
+                                background: isSelected ? '#fff' : '#f9fafb',
+                                color: isSelected ? accentColor : '#6b7280',
+                                border: `2px solid ${isSelected ? accentColor : '#e5e7eb'}`,
+                                borderRadius: '12px', cursor: 'pointer',
+                                boxShadow: isSelected ? `0 4px 16px ${accentColor}20` : 'none',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'left',
+                                position: 'relative',
+                              }}>
+                                {isSelected && (
+                                  <div style={{ position: 'absolute', top: '8px', right: '8px', width: '20px', height: '20px', borderRadius: '50%', background: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                  </div>
+                                )}
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: accentColor, display: 'inline-block', marginRight: '8px' }} />
+                                {tab.label}
+                                <div style={{ fontSize: '11px', fontWeight: 400, color: '#9ca3af', marginTop: '4px' }}>{tab.sublabel}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
                     )}
 
-                    {/* Refinement notes */}
+                    {/* Enhancement notes */}
                     {motionActiveTab === 'refined' && motionRefineResult?.refined?.refinement_notes && (
                       <div style={{ padding: '12px 16px', background: '#f0fdf4', borderRadius: '10px', marginBottom: '14px', border: '1px solid #bbf7d0' }}>
-                        <div style={{ fontWeight: 600, fontSize: '12px', color: '#166534', marginBottom: '4px' }}>Refinement Notes</div>
+                        <div style={{ fontWeight: 600, fontSize: '12px', color: '#166534', marginBottom: '4px' }}>Enhancement Notes</div>
                         <p style={{ fontSize: '13px', color: '#15803d', margin: 0, lineHeight: 1.5 }}>{motionRefineResult.refined.refinement_notes}</p>
                       </div>
                     )}
@@ -1400,70 +2025,88 @@ Please provide an improved, refined response that addresses the user's feedback 
                       </div>
                     )}
 
-                    {/* Motion sections */}
+                    {/* Motion document — styled as formal legal document */}
                     {activeMotionResult.motion ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{
+                        background: '#fff',
+                        borderRadius: '2px',
+                        border: '1px solid #d1d5db',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)',
+                        padding: '48px 56px',
+                        fontFamily: "'Times New Roman', 'Georgia', serif",
+                        color: '#1a1a1a',
+                        lineHeight: 1.8,
+                        fontSize: '14px',
+                        maxWidth: '800px',
+                        margin: '0 auto',
+                        position: 'relative',
+                      }}>
+                        {/* Subtle left border accent */}
+                        <div style={{ position: 'absolute', left: 0, top: '24px', bottom: '24px', width: '3px', background: 'linear-gradient(180deg, #7c3aed 0%, #a78bfa 100%)', borderRadius: '0 2px 2px 0' }} />
+
                         {activeMotionResult.motion.header && (
-                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
-                            <pre style={{ fontFamily: "'Courier New', monospace", fontSize: '11px', whiteSpace: 'pre-wrap', margin: 0, color: '#374151' }}>{activeMotionResult.motion.header}</pre>
+                          <div style={{ textAlign: 'center', marginBottom: '32px', paddingBottom: '24px', borderBottom: '2px solid #111' }}>
+                            <pre style={{ fontFamily: "'Times New Roman', 'Georgia', serif", fontSize: '12px', whiteSpace: 'pre-wrap', margin: 0, color: '#1a1a1a', lineHeight: 1.6, letterSpacing: '0.02em' }}>{activeMotionResult.motion.header}</pre>
                           </div>
                         )}
-                        {(activeMotionResult.motion.title || activeMotionResult.motion.introduction) && (
-                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
-                            {activeMotionResult.motion.title && <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: '0 0 10px 0', textAlign: 'center' }}>{activeMotionResult.motion.title}</h3>}
-                            {activeMotionResult.motion.introduction && <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, margin: 0 }}>{activeMotionResult.motion.introduction}</p>}
+                        {activeMotionResult.motion.title && (
+                          <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#000', margin: '0 0 24px 0', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.4 }}>{activeMotionResult.motion.title}</h2>
+                        )}
+                        {activeMotionResult.motion.introduction && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <p style={{ fontSize: '14px', color: '#1a1a1a', lineHeight: 1.8, margin: 0, textAlign: 'justify', textIndent: '2em' }}>{activeMotionResult.motion.introduction}</p>
                           </div>
                         )}
                         {activeMotionResult.motion.relief_sought && activeMotionResult.motion.relief_sought.length > 0 && (
-                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
-                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>RELIEF SOUGHT</h4>
-                            <ol style={{ margin: 0, paddingLeft: '20px' }}>
-                              {activeMotionResult.motion.relief_sought.map((item, i) => <li key={i} style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, marginBottom: '6px' }}>{item}</li>)}
+                          <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#000', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb', paddingBottom: '6px' }}>Relief Sought</h3>
+                            <ol style={{ margin: 0, paddingLeft: '24px' }}>
+                              {activeMotionResult.motion.relief_sought.map((item, i) => <li key={i} style={{ fontSize: '14px', lineHeight: 1.8, marginBottom: '8px', textAlign: 'justify' }}>{item}</li>)}
                             </ol>
                           </div>
                         )}
                         {activeMotionResult.motion.grounds && activeMotionResult.motion.grounds.length > 0 && (
-                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
-                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>GROUNDS</h4>
-                            <ol style={{ margin: 0, paddingLeft: '20px' }}>
-                              {activeMotionResult.motion.grounds.map((item, i) => <li key={i} style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, marginBottom: '6px' }}>{item}</li>)}
+                          <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#000', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb', paddingBottom: '6px' }}>Grounds</h3>
+                            <ol style={{ margin: 0, paddingLeft: '24px' }}>
+                              {activeMotionResult.motion.grounds.map((item, i) => <li key={i} style={{ fontSize: '14px', lineHeight: 1.8, marginBottom: '8px', textAlign: 'justify' }}>{item}</li>)}
                             </ol>
                           </div>
                         )}
                         {activeMotionResult.motion.factual_background && (
-                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
-                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>FACTUAL BACKGROUND</h4>
-                            <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{activeMotionResult.motion.factual_background}</p>
+                          <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#000', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb', paddingBottom: '6px' }}>Factual Background</h3>
+                            <p style={{ fontSize: '14px', lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap', textAlign: 'justify', textIndent: '2em' }}>{activeMotionResult.motion.factual_background}</p>
                           </div>
                         )}
                         {activeMotionResult.motion.legal_argument && (
-                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
-                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>LEGAL ARGUMENT</h4>
+                          <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#000', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb', paddingBottom: '6px' }}>Legal Argument</h3>
                             {activeMotionResult.motion.legal_argument.charter_violation && (
-                              <div style={{ marginBottom: '12px' }}>
-                                <h5 style={{ fontSize: '12px', fontWeight: 600, color: '#7c3aed', margin: '0 0 6px 0' }}>Charter Violation</h5>
-                                <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, margin: 0 }}>{activeMotionResult.motion.legal_argument.charter_violation}</p>
+                              <div style={{ marginBottom: '16px' }}>
+                                <h4 style={{ fontSize: '13px', fontWeight: 700, fontStyle: 'italic', color: '#1a1a1a', margin: '0 0 8px 0' }}>Constitutional Violation</h4>
+                                <p style={{ fontSize: '14px', lineHeight: 1.8, margin: 0, textAlign: 'justify', textIndent: '2em' }}>{activeMotionResult.motion.legal_argument.charter_violation}</p>
                               </div>
                             )}
                             {activeMotionResult.motion.legal_argument.grant_analysis && (
-                              <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '14px', marginTop: '8px' }}>
-                                <h5 style={{ fontSize: '12px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>Grant Framework Analysis</h5>
+                              <div style={{ marginTop: '16px', padding: '20px 24px', background: '#fafafa', borderLeft: '3px solid #6b7280', marginLeft: '8px' }}>
+                                <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a', margin: '0 0 14px 0', fontStyle: 'italic' }}>Framework Analysis</h4>
                                 {activeMotionResult.motion.legal_argument.grant_analysis.seriousness_of_breach && (
-                                  <div style={{ marginBottom: '10px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>1. Seriousness of Breach:</span>
-                                    <p style={{ fontSize: '12px', color: '#374151', margin: '2px 0 0 0', lineHeight: 1.5 }}>{activeMotionResult.motion.legal_argument.grant_analysis.seriousness_of_breach}</p>
+                                  <div style={{ marginBottom: '14px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 700 }}>i. Seriousness of Breach</span>
+                                    <p style={{ fontSize: '14px', margin: '4px 0 0 0', lineHeight: 1.8, textAlign: 'justify' }}>{activeMotionResult.motion.legal_argument.grant_analysis.seriousness_of_breach}</p>
                                   </div>
                                 )}
                                 {activeMotionResult.motion.legal_argument.grant_analysis.impact_on_accused && (
-                                  <div style={{ marginBottom: '10px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>2. Impact on Accused:</span>
-                                    <p style={{ fontSize: '12px', color: '#374151', margin: '2px 0 0 0', lineHeight: 1.5 }}>{activeMotionResult.motion.legal_argument.grant_analysis.impact_on_accused}</p>
+                                  <div style={{ marginBottom: '14px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 700 }}>ii. Impact on the Accused</span>
+                                    <p style={{ fontSize: '14px', margin: '4px 0 0 0', lineHeight: 1.8, textAlign: 'justify' }}>{activeMotionResult.motion.legal_argument.grant_analysis.impact_on_accused}</p>
                                   </div>
                                 )}
                                 {activeMotionResult.motion.legal_argument.grant_analysis.society_interest && (
                                   <div>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>3. Society's Interest:</span>
-                                    <p style={{ fontSize: '12px', color: '#374151', margin: '2px 0 0 0', lineHeight: 1.5 }}>{activeMotionResult.motion.legal_argument.grant_analysis.society_interest}</p>
+                                    <span style={{ fontSize: '13px', fontWeight: 700 }}>iii. Society's Interest in Adjudication on the Merits</span>
+                                    <p style={{ fontSize: '14px', margin: '4px 0 0 0', lineHeight: 1.8, textAlign: 'justify' }}>{activeMotionResult.motion.legal_argument.grant_analysis.society_interest}</p>
                                   </div>
                                 )}
                               </div>
@@ -1471,39 +2114,82 @@ Please provide an improved, refined response that addresses the user's feedback 
                           </div>
                         )}
                         {activeMotionResult.motion.conclusion && (
-                          <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
-                            <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>CONCLUSION</h4>
-                            <p style={{ fontSize: '13px', color: '#374151', lineHeight: 1.6, margin: 0 }}>{activeMotionResult.motion.conclusion}</p>
+                          <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#000', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb', paddingBottom: '6px' }}>Conclusion</h3>
+                            <p style={{ fontSize: '14px', lineHeight: 1.8, margin: 0, textAlign: 'justify', textIndent: '2em' }}>{activeMotionResult.motion.conclusion}</p>
+                          </div>
+                        )}
+                        {activeMotionResult.motion.signature_block && (
+                          <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #e5e7eb' }}>
+                            <pre style={{ fontFamily: "'Times New Roman', 'Georgia', serif", fontSize: '13px', whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.6 }}>{activeMotionResult.motion.signature_block}</pre>
                           </div>
                         )}
                       </div>
                     ) : activeMotionResult.raw_motion && (
-                      <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px' }}>
-                        <pre style={{ fontFamily: "'Courier New', monospace", fontSize: '12px', whiteSpace: 'pre-wrap', margin: 0, color: '#374151' }}>{activeMotionResult.raw_motion}</pre>
+                      <div style={{
+                        background: '#fff', borderRadius: '2px', border: '1px solid #d1d5db',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.08)', padding: '48px 56px',
+                        fontFamily: "'Times New Roman', 'Georgia', serif", maxWidth: '800px', margin: '0 auto',
+                      }}>
+                        <pre style={{ fontFamily: "'Times New Roman', 'Georgia', serif", fontSize: '14px', whiteSpace: 'pre-wrap', margin: 0, color: '#1a1a1a', lineHeight: 1.8 }}>{activeMotionResult.raw_motion}</pre>
                       </div>
                     )}
 
                     {/* Key case law */}
                     {activeMotionResult.key_case_law && activeMotionResult.key_case_law.length > 0 && (
-                      <div style={{ background: '#fff', borderRadius: '10px', border: '1px solid #e5e7eb', padding: '16px', marginTop: '12px' }}>
-                        <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: '0 0 10px 0' }}>Key Case Law</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '20px', marginTop: '16px', maxWidth: '800px', margin: '16px auto 0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#7c3aed" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                          <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '0.02em' }}>Referenced Case Law</h4>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           {activeMotionResult.key_case_law.map((c, i) => (
-                            <div key={i} style={{ padding: '8px 10px', background: '#f9fafb', borderRadius: '6px' }}>
-                              <div style={{ fontWeight: 600, fontSize: '12px', color: '#7c3aed' }}>{c.case}</div>
-                              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{c.relevance}</div>
+                            <div key={i} style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #7c3aed' }}>
+                              <div style={{ fontWeight: 600, fontSize: '13px', color: '#1e293b', fontStyle: 'italic' }}>{c.case}</div>
+                              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '3px', lineHeight: 1.5 }}>{c.relevance}</div>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* New query button */}
-                    <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '16px' }}>
+                    {/* Action buttons after generation */}
+                    <div style={{ display: 'flex', gap: '10px', paddingTop: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(getFullMotionText(activeMotionResult));
+                          toast.success('Copied entire motion to clipboard');
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', fontSize: '13px', fontWeight: 600,
+                          background: '#0f172a', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copy
+                      </button>
+                      <button onClick={() => handleDownloadMotion(activeMotionResult)} style={{
+                        display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', fontSize: '13px', fontWeight: 600,
+                        background: '#fff', color: '#374151', border: '1px solid #e5e7eb', borderRadius: '10px', cursor: 'pointer',
+                      }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Download
+                      </button>
+                      <button
+                        onClick={() => motionFileInputRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', fontSize: '13px', fontWeight: 600,
+                          background: '#fff', color: '#7c3aed', border: '1px solid #ddd6fe', borderRadius: '10px', cursor: 'pointer',
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Add Documents
+                      </button>
                       <button className="new-query-btn" onClick={resetMotionMode}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                          New query
+                          New Motion
                         </span>
                       </button>
                     </div>
@@ -1536,6 +2222,29 @@ Please provide an improved, refined response that addresses the user's feedback 
                         </span>
                       </button>
                     </form>
+                    {/* Generate Now — skip remaining questions */}
+                    {motionConversation.length >= 2 && (
+                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
+                        <button
+                          onClick={handleGenerateNow}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            padding: '9px 20px', fontSize: '13px', fontWeight: 600,
+                            background: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
+                            color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 2px 8px rgba(15, 23, 42, 0.2)',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(15, 23, 42, 0.3)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(15, 23, 42, 0.2)'; }}
+                        >
+                          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          Generate Now — skip remaining questions
+                        </button>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -1549,62 +2258,19 @@ Please provide an improved, refined response that addresses the user's feedback 
                 transition={{ duration: 0.3, delay: 0.2 }}
                 style={{ width: '280px', flexShrink: 0, position: 'sticky', top: '24px', alignSelf: 'flex-start', display: 'flex', flexDirection: 'column', gap: '12px' }}
               >
-                {/* Workflow section */}
+                {/* Orchestrator section */}
                 <div style={{ borderRadius: '12px', border: '1px solid #e5e7eb', padding: '16px', background: '#fff' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Workflow</div>
-                  <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', padding: '3px', background: '#f3f4f6', borderRadius: '8px' }}>
-                    <button onClick={() => setMotionWorkflow('parallel')} style={{
-                      flex: 1, padding: '6px 8px', fontSize: '11px', fontWeight: 600,
-                      background: motionWorkflow === 'parallel' ? '#fff' : 'transparent',
-                      color: motionWorkflow === 'parallel' ? '#111827' : '#9ca3af',
-                      border: 'none', borderRadius: '6px', cursor: 'pointer',
-                      boxShadow: motionWorkflow === 'parallel' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                    }}>Compare</button>
-                    <button onClick={() => setMotionWorkflow('refine')} style={{
-                      flex: 1, padding: '6px 8px', fontSize: '11px', fontWeight: 600,
-                      background: motionWorkflow === 'refine' ? '#fff' : 'transparent',
-                      color: motionWorkflow === 'refine' ? '#111827' : '#9ca3af',
-                      border: 'none', borderRadius: '6px', cursor: 'pointer',
-                      boxShadow: motionWorkflow === 'refine' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                    }}>Create & Refine</button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6b7280', marginBottom: '4px' }}>
-                        {motionWorkflow === 'refine' ? 'Creator' : 'Provider'}
-                      </label>
-                      <select value={creatorProvider} onChange={(e) => setCreatorProvider(e.target.value as MotionProvider)} style={{
-                        width: '100%', padding: '7px 10px', border: `1.5px solid ${(PROVIDER_INFO[creatorProvider]?.color || '#6b7280')}40`,
-                        borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[creatorProvider]?.bg || '#f3f4f6', cursor: 'pointer',
-                      }}>
-                        <option value="claude">Claude</option>
-                        <option value="gemini">Gemini</option>
-                        <option value="gpt4">GPT-5.2</option>
-                      </select>
-                    </div>
-                    {motionWorkflow === 'refine' && (
-                      <div>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6b7280', marginBottom: '4px' }}>Refiner</label>
-                        <select value={refinerProvider} onChange={(e) => setRefinerProvider(e.target.value as MotionProvider)} style={{
-                          width: '100%', padding: '7px 10px', border: `1.5px solid ${(PROVIDER_INFO[refinerProvider]?.color || '#6b7280')}40`,
-                          borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[refinerProvider]?.bg || '#f3f4f6', cursor: 'pointer',
-                        }}>
-                          <option value="claude">Claude</option>
-                          <option value="gemini">Gemini</option>
-                          <option value="gpt4">GPT-5.2</option>
-                        </select>
-                      </div>
-                    )}
-                    <div>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#6b7280', marginBottom: '4px' }}>Orchestrator</label>
-                      <select value={orchestrator} onChange={(e) => setOrchestrator(e.target.value as 'lern-2.1' | 'lern-1.9')} style={{
-                        width: '100%', padding: '7px 10px', border: `1.5px solid ${PROVIDER_INFO[orchestrator]?.color || '#7c3aed'}40`,
-                        borderRadius: '6px', fontSize: '12px', fontWeight: 500, background: PROVIDER_INFO[orchestrator]?.bg || '#f3e8ff', cursor: 'pointer',
-                      }}>
-                        <option value="lern-2.1">LERN 2.1 Beta</option>
-                        <option value="lern-1.9">LERN 1.9.1 Stable</option>
-                      </select>
-                    </div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>Orchestrator</div>
+                  <select value={orchestrator} onChange={(e) => setOrchestrator(e.target.value as 'lern-2.1' | 'lern-1.9')} style={{
+                    width: '100%', padding: '9px 12px', border: `1.5px solid ${PROVIDER_INFO[orchestrator]?.color || '#7c3aed'}40`,
+                    borderRadius: '8px', fontSize: '13px', fontWeight: 600, background: PROVIDER_INFO[orchestrator]?.bg || '#f3e8ff', cursor: 'pointer',
+                    color: PROVIDER_INFO[orchestrator]?.color || '#7c3aed',
+                  }}>
+                    <option value="lern-2.1">LERN 2.1 Beta</option>
+                    <option value="lern-1.9">LERN 1.9.1 Stable</option>
+                  </select>
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#9ca3af', lineHeight: 1.4 }}>
+                    AI-powered drafting and enhancement engine
                   </div>
                 </div>
 
@@ -1657,7 +2323,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                   <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
                     <input type="text" value={canLIIQuery} onChange={(e) => setCanLIIQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && openCanLII()}
                       placeholder="Search case law..." style={{ flex: 1, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px' }} />
-                    <button onClick={() => openCanLII()} style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: '#d97706', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                    <button onClick={() => openCanLII()} style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
                       <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </button>
                   </div>
@@ -1669,7 +2335,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       { label: 'Ontario Courts', query: '' },
                     ].map(link => (
                       <button key={link.label} onClick={() => link.query ? openCanLII(link.query) : window.open('https://www.canlii.org/en/on/', '_blank')}
-                        style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 500, background: '#fffbeb', color: '#92400e', border: '1px solid #fcd34d', borderRadius: '10px', cursor: 'pointer' }}>
+                        style={{ padding: '3px 8px', fontSize: '10px', fontWeight: 500, background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe', borderRadius: '10px', cursor: 'pointer' }}>
                         {link.label}
                       </button>
                     ))}
@@ -1677,12 +2343,12 @@ Please provide an improved, refined response that addresses the user's feedback 
                   {/* Referenced cases from result */}
                   {activeMotionResult?.key_case_law && activeMotionResult.key_case_law.length > 0 && (
                     <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #f3f4f6' }}>
-                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#92400e', marginBottom: '4px' }}>Cited cases:</div>
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#6d28d9', marginBottom: '4px' }}>Cited cases:</div>
                       <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                         {activeMotionResult.key_case_law.slice(0, 5).map((c, i) => (
                           <button key={i} onClick={() => openCanLII(c.case)} style={{
-                            padding: '2px 6px', fontSize: '10px', fontWeight: 500, background: '#fef3c7', color: '#78350f',
-                            border: '1px solid #fcd34d', borderRadius: '4px', cursor: 'pointer',
+                            padding: '2px 6px', fontSize: '10px', fontWeight: 500, background: '#f5f3ff', color: '#6d28d9',
+                            border: '1px solid #ddd6fe', borderRadius: '4px', cursor: 'pointer',
                           }} title={c.relevance}>{c.case}</button>
                         ))}
                       </div>
@@ -1711,7 +2377,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       </button>
                       <button onClick={() => setShowAddToCase(!showAddToCase)} style={{
                         display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', fontSize: '12px', fontWeight: 500,
-                        background: showAddToCase ? '#eff6ff' : '#f9fafb', color: showAddToCase ? '#2563eb' : '#374151',
+                        background: showAddToCase ? '#f5f3ff' : '#f9fafb', color: showAddToCase ? '#7c3aed' : '#374151',
                         border: `1px solid ${showAddToCase ? '#93c5fd' : '#e5e7eb'}`, borderRadius: '8px', cursor: 'pointer', width: '100%',
                       }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1724,7 +2390,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                           <input type="text" value={caseOrPersonName} onChange={(e) => setCaseOrPersonName(e.target.value)}
                             placeholder="Case name or file #" style={{ flex: 1, padding: '7px 10px', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '12px' }} />
                           <button onClick={() => { setAddToCaseSaved(true); setShowAddToCase(false); setCaseOrPersonName(''); setTimeout(() => setAddToCaseSaved(false), 3000); }} disabled={!caseOrPersonName.trim()}
-                            style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: caseOrPersonName.trim() ? '#2563eb' : '#e5e7eb', color: caseOrPersonName.trim() ? '#fff' : '#9ca3af', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                            style={{ padding: '7px 12px', fontSize: '11px', fontWeight: 600, background: caseOrPersonName.trim() ? '#7c3aed' : '#e5e7eb', color: caseOrPersonName.trim() ? '#fff' : '#9ca3af', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
                             Save
                           </button>
                         </div>
@@ -1753,6 +2419,7 @@ Please provide an improved, refined response that addresses the user's feedback 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3, delay: 0.2 }}
+            style={{ width: '100%' }}
           >
             <div style={{
               display: 'flex',
@@ -1839,14 +2506,14 @@ Please provide an improved, refined response that addresses the user's feedback 
 
                   {msg.role === 'gpt' && (
                     <div style={{
-                      background: '#f8f7ff',
+                      background: '#faf5ff',
                       borderRadius: '12px',
                       padding: '20px',
                     }}>
                       <p style={{
                         fontSize: '11px',
                         fontWeight: 700,
-                        color: '#6366f1',
+                        color: '#7c3aed',
                         margin: '0 0 10px 0',
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
@@ -1857,7 +2524,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                         <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-                        Refined
+                        Enhanced
                       </p>
                       <div className="prose" style={{
                         fontSize: '14px',
@@ -1897,22 +2564,22 @@ Please provide an improved, refined response that addresses the user's feedback 
                     gap: '8px',
                     padding: '8px 16px',
                     borderRadius: '100px',
-                    background: conversationStep === 'gpt_loading' ? '#f8f7ff' : '#f0fdfa',
-                    border: `1px solid ${conversationStep === 'gpt_loading' ? '#e0e7ff' : '#ccfbf1'}`,
+                    background: '#f5f3ff',
+                    border: '1px solid #ede9fe',
                   }}>
                     <div style={{
                       width: '6px',
                       height: '6px',
                       borderRadius: '50%',
-                      background: conversationStep === 'gpt_loading' ? '#6366f1' : '#0d9488',
+                      background: '#7c3aed',
                       animation: 'pulse 1s ease-in-out infinite',
                     }} />
                     <span style={{
                       fontSize: '13px',
                       fontWeight: 500,
-                      color: conversationStep === 'gpt_loading' ? '#6366f1' : '#0d9488',
+                      color: '#7c3aed',
                     }}>
-                      {conversationStep === 'gemini_loading' ? 'Connecting...' : 'Connecting to GPT...'}
+                      {conversationStep === 'gemini_loading' ? 'Analyzing...' : 'Processing...'}
                     </span>
                   </div>
                 </motion.div>
@@ -1931,7 +2598,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                     margin: '0 0 20px 0',
                   }} />
                   <div style={conversationStep === 'gpt_streaming' ? {
-                    background: '#f8f7ff',
+                    background: '#faf5ff',
                     borderRadius: '12px',
                     padding: '20px',
                   } : {}}>
@@ -1939,7 +2606,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                       <p style={{
                         fontSize: '11px',
                         fontWeight: 700,
-                        color: '#6366f1',
+                        color: '#7c3aed',
                         margin: '0 0 10px 0',
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
@@ -1950,7 +2617,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                         <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-                        Refining...
+                        Enhancing...
                       </p>
                     )}
                     <div className="prose" style={{
@@ -1978,7 +2645,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                     margin: '0 0 8px 0',
                     fontWeight: 500,
                   }}>
-                    Provide feedback to refine the response
+                    Provide feedback to enhance the response
                   </p>
                   <form onSubmit={handleFeedbackSubmit} style={{
                     display: 'flex',
@@ -2003,7 +2670,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                     />
                     <button type="submit" className="refine-btn" disabled={!feedback.trim()}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        Refine
+                        Enhance
                         <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                         </svg>
@@ -2113,283 +2780,7 @@ Please provide an improved, refined response that addresses the user's feedback 
         )}
       </AnimatePresence>
 
-      {/* ── Main Content — fades out when conversation starts ── */}
-      <AnimatePresence>
-        {!isConversationActive && (
-          <motion.div
-            key="main-content"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, y: 20, transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] } }}
-          >
-      <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto', overflow: 'hidden' }}>
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.div
-            key={activeTab}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          >
-            {/* Tools */}
-            <div style={{ marginBottom: '36px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                marginBottom: '16px',
-              }}>
-                <div style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '8px',
-                  background: activeTab === 'legal'
-                    ? 'linear-gradient(135deg, #4b5563, #6b7280)'
-                    : 'linear-gradient(135deg, #0d9488, #14b8a6)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  {activeTab === 'legal' ? (
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                    </svg>
-                  )}
-                </div>
-                <h2 style={{ fontSize: '17px', fontWeight: 600, color: '#111827', margin: 0 }}>
-                  {activeTab === 'legal' ? 'Legal Tools' : 'Data Tools'}
-                </h2>
-              </div>
-              <div className="tools-grid" style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '16px',
-              }}>
-                {tools.map((tool) => (
-                  <div
-                    key={tool.title}
-                    className="tool-card"
-                    onClick={() => navigate(tool.link)}
-                  >
-                    <div style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '12px',
-                      background: lightBg,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: accent,
-                      marginBottom: '16px',
-                    }}>
-                      {tool.icon}
-                    </div>
-                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#111827', margin: '0 0 6px 0' }}>
-                      {tool.title}
-                    </h3>
-                    <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 14px 0', lineHeight: 1.5 }}>
-                      {tool.description}
-                    </p>
-                    <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 16px 0', flex: 1 }}>
-                      {tool.bullets.map((b) => (
-                        <li key={b} style={{
-                          fontSize: '12px',
-                          color: '#6b7280',
-                          padding: '3px 0',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                        }}>
-                          <span style={{
-                            width: '4px',
-                            height: '4px',
-                            borderRadius: '50%',
-                            background: accent,
-                            opacity: 0.4,
-                            flexShrink: 0,
-                          }} />
-                          {b}
-                        </li>
-                      ))}
-                    </ul>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <svg className="arrow-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke={accent} strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent Files */}
-            {!isLoading && filteredRecent.length > 0 && (
-              <div style={{ marginBottom: '36px' }}>
-                <h2 style={{
-                  fontWeight: 600,
-                  color: '#94a3b8',
-                  margin: '0 0 12px 0',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  fontSize: '11px',
-                }}>
-                  Recent {activeTab === 'legal' ? 'Documents' : 'Datasets'}
-                </h2>
-                <div style={{
-                  background: '#fff',
-                  borderRadius: '12px',
-                  border: '1px solid #e5e7eb',
-                  overflow: 'hidden',
-                }}>
-                  {filteredRecent.map((doc, i) => {
-                    const isDoc = DOCUMENT_TYPES.includes(doc.type?.toLowerCase());
-                    const rowAccent = isDoc ? '#4b5563' : '#0d9488';
-                    const bgAccent = isDoc ? '#f3f4f6' : '#f0fdfa';
-                    const targetRoute = isDoc ? '/legal' : '/data';
-                    return (
-                      <div
-                        key={doc.id}
-                        className="recent-row"
-                        onClick={() => navigate(targetRoute)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '12px 16px',
-                          borderBottom: i < filteredRecent.length - 1 ? '1px solid #f3f4f6' : 'none',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke={rowAccent} strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <span style={{
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            color: '#111827',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {doc.name}
-                          </span>
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            color: rowAccent,
-                            background: bgAccent,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            flexShrink: 0,
-                          }}>
-                            {formatFileType(doc.type)}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                          <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-                            {timeAgo(doc.updated_at)}
-                          </span>
-                          <span style={{
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            color: '#0d9488',
-                          }}>
-                            Open
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* How It Works */}
-            <div>
-              <h2 style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#94a3b8',
-                margin: '0 0 12px 0',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}>
-                How It Works
-              </h2>
-              <div className="steps-grid" style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '12px',
-              }}>
-                {[
-                  activeTab === 'legal'
-                    ? { n: '1', t: 'Describe or Upload', d: 'Type what you need or drag in legal documents and PDFs.' }
-                    : { n: '1', t: 'Describe or Upload', d: 'Type what you need or drag in CSVs, Excel, and JSON files.' },
-                  { n: '2', t: 'AI Analyzes', d: 'Three AI models work in parallel to extract deep insights.' },
-                  activeTab === 'legal'
-                    ? { n: '3', t: 'Take Action', d: 'Get drafted motions, risk reports, and compliance analysis.' }
-                    : { n: '3', t: 'Take Action', d: 'Get trained models, predictions, and enriched datasets.' },
-                ].map((step) => (
-                  <div key={step.n} className="step-card" style={{
-                    background: '#fff',
-                    borderRadius: '12px',
-                    border: '1px solid #e5e7eb',
-                    padding: '20px',
-                  }}>
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '8px',
-                      background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '14px',
-                      fontWeight: 700,
-                      color: '#fff',
-                      marginBottom: '12px',
-                    }}>
-                      {step.n}
-                    </div>
-                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: '0 0 4px 0' }}>
-                      {step.t}
-                    </h3>
-                    <p style={{ fontSize: '13px', color: '#6b7280', margin: 0, lineHeight: 1.5 }}>
-                      {step.d}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Footer */}
-        <div style={{
-          textAlign: 'center',
-          padding: '24px 0 8px',
-          fontSize: '12px',
-          color: '#94a3b8',
-          fontWeight: 500,
-          letterSpacing: '0.02em',
-        }}>
-          Powered by <span style={{
-            fontWeight: 700,
-            background: 'linear-gradient(135deg, #0d9488, #4b5563)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}>LERN v1.2.1</span>
-        </div>
       </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
