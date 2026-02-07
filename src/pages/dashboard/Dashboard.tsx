@@ -798,7 +798,7 @@ Please provide an improved, refined response that addresses the user's feedback 
       return;
     }
     if (tool) {
-      const base = activeTab === 'legal' ? '/legal' : '/data';
+      const base = activeTab === 'legal' ? '/dashboard' : '/data';
       const params = new URLSearchParams();
       params.set('intent', label);
       params.set('tool', tool);
@@ -931,7 +931,7 @@ Please provide an improved, refined response that addresses the user's feedback 
               }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#f8fafc'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-                onClick={() => navigate(DOCUMENT_TYPES.includes(doc.type?.toLowerCase()) ? '/legal' : '/data')}
+                onClick={() => navigate(DOCUMENT_TYPES.includes(doc.type?.toLowerCase()) ? '/dashboard' : '/data')}
               >
                 <div style={{
                   width: '24px', height: '24px', borderRadius: '6px', flexShrink: 0,
