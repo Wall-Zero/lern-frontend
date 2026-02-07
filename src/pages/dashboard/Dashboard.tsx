@@ -504,7 +504,7 @@ export const Dashboard = () => {
     if (!currentResult) return;
 
     setMotionGenerating(true);
-    setMotionGenStep('refining');
+    // Keep motionGenStep as 'done' so the motion document stays visible
     setMotionProgress(0);
 
     const progressInterval = setInterval(() => {
@@ -538,11 +538,9 @@ export const Dashboard = () => {
       }
 
       setMotionProgress(100);
-      setMotionGenStep('done');
     } catch (err) {
       toast.error('Refinement failed');
       console.error(err);
-      setMotionGenStep('done');
     } finally {
       clearInterval(progressInterval);
       setMotionGenerating(false);
@@ -2070,7 +2068,20 @@ Please provide an improved, refined response that addresses the user's feedback 
 
                 {/* Generated motion result inline */}
                 {motionGenStep === 'done' && activeMotionResult && (
-                  <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+                  <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} style={{ position: 'relative' }}>
+                    {/* Refining overlay */}
+                    {motionGenerating && (
+                      <div style={{
+                        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10,
+                        background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(2px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb' }}>
+                          <div style={{ width: '18px', height: '18px', border: '2.5px solid #e5e7eb', borderTopColor: '#0d9488', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Refining motion...</span>
+                        </div>
+                      </div>
+                    )}
                     {/* Workflow tabs for refine mode */}
                     {motionRefineResult && (
                       <>
