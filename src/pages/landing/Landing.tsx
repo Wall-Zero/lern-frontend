@@ -8,7 +8,7 @@ const DataFutureLanding = () => {
   const [glitchIntensity, setGlitchIntensity] = useState(0);
   const navigate = useNavigate();
 
-  const fullText = "hey take me to the future of data";
+  const fullText = "Take me to the future of analysis";
 
   // Typing effect
   useEffect(() => {
@@ -498,7 +498,7 @@ const DataFutureLanding = () => {
                 (e.target as HTMLElement).style.borderColor = 'rgba(0, 255, 200, 0.4)';
               }}
             >
-              Launch App →
+              Log In →
             </button>
           </nav>
 
