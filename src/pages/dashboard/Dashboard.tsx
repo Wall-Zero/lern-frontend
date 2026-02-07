@@ -945,13 +945,13 @@ Please provide an improved, refined response that addresses the user's feedback 
           >
             <div style={{
               width: '32px', height: '32px', borderRadius: '10px',
-              background: 'linear-gradient(135deg, #0f172a 0%, #334155 100%)',
+              background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <span style={{ color: '#fff', fontWeight: 800, fontSize: '14px', letterSpacing: '-0.03em' }}>L</span>
             </div>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>LERN</div>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#0d9488', letterSpacing: '-0.02em' }}>LERN</div>
               <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>v1.2.1</div>
             </div>
           </div>
