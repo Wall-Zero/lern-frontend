@@ -1863,26 +1863,6 @@ Please provide an improved, refined response that addresses the user's feedback 
                   </p>
                 </motion.div>
 
-                {/* Show user's initial message above the document panel */}
-                {motionConversation.length <= 1 && !motionGenerating && motionGenStep !== 'done' && motionConversation.filter(m => m.role === 'user').map((msg, i) => (
-                  <motion.div
-                    key={`motion-initial-${i}`}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    style={{ display: 'flex', justifyContent: 'flex-end' }}
-                  >
-                    <div style={{
-                      maxWidth: '80%', padding: '12px 16px',
-                      borderRadius: '16px 16px 4px 16px',
-                      background: 'linear-gradient(135deg, #4b5563, #374151)',
-                      color: '#fff', fontSize: '14px', lineHeight: 1.6,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                    }}>
-                      {msg.content}
-                    </div>
-                  </motion.div>
-                ))}
-
                 {/* Document prompt — shows at start before intake begins */}
                 {motionConversation.length <= 1 && !motionGenerating && motionGenStep !== 'done' && (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
