@@ -204,8 +204,8 @@ export const Dashboard = () => {
   const [motionLoading, setMotionLoading] = useState(false);
   const [motionType, setMotionType] = useState('charter_s8');
   const [motionWorkflow] = useState<MotionWorkflow>('refine');
-  const [creatorProvider] = useState<MotionProvider>('gpt4');
-  const [refinerProvider] = useState<MotionProvider>('claude');
+  const [creatorProvider] = useState<MotionProvider>('claude');
+  const [refinerProvider] = useState<MotionProvider>('gemini');
   const [orchestrator, setOrchestrator] = useState<'lern-2.1' | 'lern-1.9'>('lern-2.1');
   const [motionGenerating, setMotionGenerating] = useState(false);
   const [motionGenStep, setMotionGenStep] = useState<'idle' | 'creating' | 'refining' | 'done'>('idle');
@@ -386,6 +386,14 @@ export const Dashboard = () => {
     const msg = motionInput.trim();
     if (!msg || motionLoading) return;
 
+    // If motion is already generated, route to post-gen refinement
+    if (motionGenStep === 'done' && (motionRefineResult || motionResult)) {
+      setMotionConversation(prev => [...prev, { role: 'user', content: msg }]);
+      setMotionInput('');
+      handlePostGenRefinement(msg);
+      return;
+    }
+
     const updatedConv = [...motionConversation, { role: 'user' as const, content: msg }];
     setMotionConversation(updatedConv);
     setMotionInput('');
@@ -418,6 +426,59 @@ export const Dashboard = () => {
     return p;
   };
 
+  const handlePostGenRefinement = async (userFeedback: string) => {
+    // Get the current active result to refine
+    const currentResult = motionRefineResult
+      ? (motionActiveTab === 'initial' ? motionRefineResult.initial : motionRefineResult.refined)
+      : motionResult;
+    if (!currentResult) return;
+
+    setMotionGenerating(true);
+    setMotionGenStep('refining');
+    setMotionProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setMotionProgress(prev => prev >= 90 ? 90 : prev + Math.random() * 3 + 0.5);
+    }, 500);
+
+    const backendRefiner = toBackendProvider(refinerProvider);
+
+    try {
+      const refineRes = await apiClient.post('/ai-tools/refine_draft/', {
+        motion_type: motionType,
+        case_details: {},
+        case_description: `User refinement request: "${userFeedback}". Include extensive case law citations. Reference the most relevant and recent court decisions.`,
+        original_motion: currentResult,
+        refiner_provider: backendRefiner,
+      });
+
+      if (refineRes.data.success) {
+        const previousInitial = motionRefineResult?.initial || motionResult || currentResult;
+        setMotionRefineResult({ initial: previousInitial, refined: refineRes.data.refined_result });
+        setMotionActiveTab('refined');
+        setMotionConversation(prev => [...prev, {
+          role: 'assistant',
+          content: `Done! I've refined the motion based on your feedback. The changes have been applied.`,
+        }]);
+      } else {
+        setMotionConversation(prev => [...prev, {
+          role: 'assistant',
+          content: 'Refinement returned without changes. Please try a more specific request.',
+        }]);
+      }
+
+      setMotionProgress(100);
+      setMotionGenStep('done');
+    } catch (err) {
+      toast.error('Refinement failed');
+      console.error(err);
+      setMotionGenStep('done');
+    } finally {
+      clearInterval(progressInterval);
+      setMotionGenerating(false);
+    }
+  };
+
   const handleMotionReady = async (
     intakeResult: { case_details: Record<string, string>; case_description: string; motion_type: string },
     conv: MotionMessage[],
@@ -438,6 +499,7 @@ export const Dashboard = () => {
 
     const backendCreator = toBackendProvider(creatorProvider);
     const backendRefiner = toBackendProvider(refinerProvider);
+    const caseLawEnhanced = intakeResult.case_description + ' Include extensive case law citations. Reference the most relevant and recent court decisions.';
 
     try {
       if (motionWorkflow === 'refine') {
@@ -445,7 +507,7 @@ export const Dashboard = () => {
         const createRes = await apiClient.post('/ai-tools/generate_motion/', {
           motion_type: intakeResult.motion_type,
           case_details: intakeResult.case_details,
-          case_description: intakeResult.case_description,
+          case_description: caseLawEnhanced,
           reference_document_ids: motionSelectedDocs,
           providers: [backendCreator],
         });
@@ -462,7 +524,7 @@ export const Dashboard = () => {
         const refineRes = await apiClient.post('/ai-tools/refine_draft/', {
           motion_type: intakeResult.motion_type,
           case_details: intakeResult.case_details,
-          case_description: intakeResult.case_description,
+          case_description: caseLawEnhanced,
           original_motion: initialDraft,
           refiner_provider: backendRefiner,
         });
@@ -479,7 +541,7 @@ export const Dashboard = () => {
         const res = await apiClient.post('/ai-tools/generate_motion/', {
           motion_type: intakeResult.motion_type,
           case_details: intakeResult.case_details,
-          case_description: intakeResult.case_description,
+          case_description: caseLawEnhanced,
           reference_document_ids: motionSelectedDocs,
           providers: [backendCreator],
         });
@@ -747,7 +809,7 @@ Please provide an improved, refined response that addresses the user's feedback 
   };
 
   const suggestions = activeTab === 'legal' ? legalSuggestions : dataSuggestions;
-  const accent = activeTab === 'legal' ? '#475569' : '#0d9488';
+  const accent = activeTab === 'legal' ? '#0d9488' : '#0d9488';
 
   const isConversationActive = conversationStep !== 'idle' || motionMode;
   const isRegularConversation = conversationStep !== 'idle' && !motionMode;
@@ -1469,12 +1531,8 @@ Please provide an improved, refined response that addresses the user's feedback 
                         width: 'calc(50% - 4px)',
                       }}
                       style={{
-                        background: activeTab === 'legal'
-                          ? 'linear-gradient(135deg, #334155 0%, #475569 100%)'
-                          : 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
-                        boxShadow: activeTab === 'legal'
-                          ? '0 4px 16px rgba(51, 65, 85, 0.35)'
-                          : '0 4px 16px rgba(13, 148, 136, 0.35)',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #0891b2 100%)',
+                        boxShadow: '0 4px 16px rgba(13, 148, 136, 0.35)',
                       }}
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />
@@ -2183,8 +2241,8 @@ Please provide an improved, refined response that addresses the user's feedback 
                   </motion.div>
                 )}
 
-                {/* Chat input - only show during intake phase */}
-                {!motionGenerating && motionGenStep !== 'done' && !motionLoading && (
+                {/* Chat input - show during intake AND after generation for refinement */}
+                {!motionGenerating && !motionLoading && (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
                     <form onSubmit={handleMotionMessage} style={{
                       display: 'flex', alignItems: 'center', gap: '10px',
@@ -2200,7 +2258,7 @@ Please provide an improved, refined response that addresses the user's feedback 
                         type="text"
                         value={motionInput}
                         onChange={(e) => setMotionInput(e.target.value)}
-                        placeholder="Type your response..."
+                        placeholder={motionGenStep === 'done' ? 'Refine the motion further, or press Download...' : 'Type your response...'}
                       />
                       <button type="submit" className="refine-btn" disabled={!motionInput.trim()} style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -2208,9 +2266,24 @@ Please provide an improved, refined response that addresses the user's feedback 
                           <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
                         </span>
                       </button>
+                      {motionGenStep === 'done' && (
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadMotion(activeMotionResult ?? undefined)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px',
+                            fontSize: '13px', fontWeight: 600, background: '#0f172a', color: '#fff',
+                            border: 'none', borderRadius: '10px', cursor: 'pointer', flexShrink: 0,
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          Download
+                        </button>
+                      )}
                     </form>
                     {/* Generate Now — skip remaining questions */}
-                    {motionConversation.length >= 2 && (
+                    {motionGenStep !== 'done' && motionConversation.length >= 2 && (
                       <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
                         <button
                           onClick={handleGenerateNow}
