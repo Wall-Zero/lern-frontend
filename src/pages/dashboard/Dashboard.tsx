@@ -320,15 +320,7 @@ export const Dashboard = () => {
     if (selectedContextDocs.length > 0) {
       setMotionSelectedDocs(prev => [...new Set([...prev, ...selectedContextDocs])]);
     }
-    const heroContext = heroUploadedFiles.filter(f => !f.uploading).length > 0
-      ? ` [User has uploaded these documents for reference: ${heroUploadedFiles.filter(f => !f.uploading).map(f => f.name).join(', ')}.]`
-      : '';
-    const sidebarContext = selectedContextDocs.length > 0
-      ? ` [User has selected these existing documents as context: ${recentDocs.filter(d => selectedContextDocs.includes(d.id)).map(d => d.name).join(', ')}.]`
-      : '';
-    const contextMsg = `${getJurisdictionContext()}${heroContext}${sidebarContext} ${initialMessage}`;
     setMotionConversation([{ role: 'user', content: initialMessage }]);
-    setMotionLoading(true);
     setMotionResult(null);
     setMotionRefineResult(null);
     setMotionGenStep('idle');
@@ -337,15 +329,33 @@ export const Dashboard = () => {
     if (lower.includes('disclosure')) setMotionType('disclosure');
     else if (lower.includes('stay')) setMotionType('stay_of_proceedings');
     else setMotionType('charter_s8');
+    // Don't call motionIntake yet — let user select documents first
+  };
 
-    // Call intake with jurisdiction context
+  const startMotionIntake = (additionalMessage?: string) => {
+    const initialMessage = motionConversation.find(m => m.role === 'user')?.content || '';
+    const heroContext = heroUploadedFiles.filter(f => !f.uploading).length > 0
+      ? ` [User has uploaded these documents for reference: ${heroUploadedFiles.filter(f => !f.uploading).map(f => f.name).join(', ')}.]`
+      : '';
+    const docContext = motionSelectedDocs.length > 0
+      ? ` [User has selected these existing documents as context: ${motionDocs.filter(d => motionSelectedDocs.includes(d.id)).map(d => d.name).join(', ')}.]`
+      : '';
+    const contextMsg = `${getJurisdictionContext()}${heroContext}${docContext} ${initialMessage}`;
+    const conversation: MotionMessage[] = [{ role: 'user', content: contextMsg }];
+
+    if (additionalMessage) {
+      setMotionConversation(prev => [...prev, { role: 'user', content: additionalMessage }]);
+      conversation.push({ role: 'user', content: additionalMessage });
+    }
+
+    setMotionLoading(true);
     motionIntake({
-      conversation: [{ role: 'user', content: contextMsg }],
-      motion_type: lower.includes('disclosure') ? 'disclosure' : lower.includes('stay') ? 'stay_of_proceedings' : 'charter_s8',
+      conversation,
+      motion_type: motionType,
       provider: 'gemini',
     }).then(res => {
       if (res.ready) {
-        handleMotionReady(res, [{ role: 'user', content: contextMsg }]);
+        handleMotionReady(res, conversation);
       } else {
         setMotionConversation(prev => [...prev, { role: 'assistant', content: res.question }]);
       }
@@ -398,6 +408,14 @@ export const Dashboard = () => {
       setMotionConversation(prev => [...prev, { role: 'user', content: msg }]);
       setMotionInput('');
       handlePostGenRefinement(msg);
+      return;
+    }
+
+    // If no assistant messages yet (still in document selection phase), start intake with this as additional context
+    const hasAssistantMessage = motionConversation.some(m => m.role === 'assistant');
+    if (!hasAssistantMessage) {
+      setMotionInput('');
+      startMotionIntake(msg);
       return;
     }
 
@@ -1930,10 +1948,22 @@ Please provide an improved, refined response that addresses the user's feedback 
                         </div>
                       )}
 
-                      {/* Proceed without docs */}
-                      <div style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', marginTop: '4px' }}>
-                        No documents? Just describe your case in the chat below.
-                      </div>
+                      {/* Continue button */}
+                      <button
+                        onClick={() => startMotionIntake()}
+                        style={{
+                          width: '100%', marginTop: '12px', padding: '12px 24px',
+                          fontSize: '14px', fontWeight: 600, color: '#fff',
+                          background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
+                          border: 'none', borderRadius: '10px', cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        {motionSelectedDocs.length > 0
+                          ? `Continue with ${motionSelectedDocs.length} document${motionSelectedDocs.length > 1 ? 's' : ''}`
+                          : 'Continue without documents'}
+                      </button>
                     </div>
                   </motion.div>
                 )}
