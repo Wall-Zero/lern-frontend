@@ -15,6 +15,7 @@ import { PollingProvider } from '../context/PollingContext';
 import Landing from '../pages/landing/Landing';
 import { Workspace } from '../pages/workspace/Workspace';
 import { DataWorkspace } from '../pages/workspace/DataWorkspace';
+import { CriminalLawNotesPage } from '../pages/criminal-law/CriminalLawNotesPage';
 
 export const AppRoutes = () => {
   return (
@@ -134,7 +135,16 @@ export const AppRoutes = () => {
             </PrivateRoute>
           }
         />
-        
+        <Route
+          path="/criminal-law"
+          element={
+            <PrivateRoute>
+              <AppLayout hideSidebar>
+                <CriminalLawNotesPage />
+              </AppLayout>
+            </PrivateRoute>
+          }
+        />
         <Route path="/" element={<Landing />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
