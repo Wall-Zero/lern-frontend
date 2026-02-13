@@ -15,7 +15,7 @@ import { PollingProvider } from '../context/PollingContext';
 import Landing from '../pages/landing/Landing';
 import { Workspace } from '../pages/workspace/Workspace';
 import { DataWorkspace } from '../pages/workspace/DataWorkspace';
-import { CriminalLawNotesPage } from '../pages/criminal-law/CriminalLawNotesPage';
+import { CriminalLawChatPage } from '../pages/criminal-law/CriminalLawChatPage';
 
 export const AppRoutes = () => {
   return (
@@ -140,7 +140,7 @@ export const AppRoutes = () => {
           element={
             <PrivateRoute>
               <AppLayout hideSidebar>
-                <CriminalLawNotesPage />
+                <CriminalLawChatPage />
               </AppLayout>
             </PrivateRoute>
           }
