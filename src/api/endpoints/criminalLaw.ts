@@ -1,228 +1,135 @@
 // src/api/endpoints/criminalLaw.ts
 
 import apiClient from '../client';
-import type {
-  Article,
-  ArticleDetail,
-  PaginatedResponse,
-  SearchFilters,
-  SemanticSearchRequest,
-  SearchResult,
-  Statistics,
-} from '../../types/criminalLaw.types';
+
+export interface RAGSearchParams {
+  alpha?: number;
+  limit?: number;
+  use_reranker?: boolean;
+  use_canlii?: boolean;
+}
+
+export interface StreamCallbacks {
+  onStatus?: (status: string, message?: string) => void;
+  onToken?: (token: string) => void;
+  onComplete?: (metadata: any) => void;
+  onError?: (error: string) => void;
+  onChatCreated?: (chatId: string) => void;
+}
 
 export const criminalLawApi = {
-  // List articles with pagination
-  getArticles: async (params: SearchFilters = {}): Promise<PaginatedResponse<Article>> => {
-    const { data } = await apiClient.get('/criminal-law/', { params });
-    return data;
+  // GET /api/chats/ - Lista todos los chats
+  listChats: async () => {
+    const response = await apiClient.get('/chats/');
+    return response.data; // { count, next, previous, results: [...] }
   },
 
-  // Get article detail
-  getArticle: async (id: number): Promise<ArticleDetail> => {
-    const { data } = await apiClient.get(`/criminal-law/${id}/`);
-    return data;
+  // GET /api/chats/{id} - Obtiene un chat con sus mensajes
+  getChatMessages: async (chatId: number) => {
+    const response = await apiClient.get(`/chats/${chatId}/`);
+    return response.data; // { id, title, messages: [...] }
   },
 
-  // Text search
-  searchText: async (
-    query: string,
-    filters: SearchFilters = {}
-  ): Promise<{ query: string; count: number; page: number; page_size: number; total_pages: number; results: SearchResult[] }> => {
-    const { data } = await apiClient.get('/criminal-law/search/text/', {
-      params: { q: query, ...filters },
-    });
-    return data;
+  // DELETE /api/chats/{id} - Elimina un chat (soft delete)
+  deleteChat: async (chatId: number) => {
+    const response = await apiClient.delete(`/chats/${chatId}/`);
+    return response.data;
   },
 
-  // Semantic search
-  searchSemantic: async (
-    body: SemanticSearchRequest
-  ): Promise<{
-    query: string;
-    total_results: number;
-    query_time_ms: number;
-    similarity_threshold: number;
-    results: SearchResult[];
-  }> => {
-    const { data } = await apiClient.post('/criminal-law/search/semantic/', body);
-    return data;
-  },
-
-  // Get statistics
-  getStats: async (): Promise<Statistics> => {
-    const { data } = await apiClient.get('/criminal-law/stats/');
-    return data;
-  },
-
-  // Get volumes list
-  getVolumes: async (): Promise<string[]> => {
-    const { data } = await apiClient.get('/criminal-law/volumes/');
-    return data.volumes;
-  },
-
-  // ========================================
-  // RAG Endpoints
-  // ========================================
-
-  /**
-   * Non-streaming RAG query
-   * Use this for simple requests that don't need real-time streaming
-   */
-  askRAG: async (
-    query: string,
-    options?: {
-      alpha?: number;
-      limit?: number;
-      use_reranker?: boolean;
-    }
-  ): Promise<{
-    answer: string;
-    sources: Array<{
-      id: number;
-      title: string;
-      url: string;
-      relevance: number;
-      rerank_score?: number;
-    }>;
-    definitions: Array<{
-      term: string;
-      definition: string;
-    }>;
-    controlling_sections: string[];
-    case_citations: Array<{
-      name: string;
-      url: string;
-      date?: string;
-    }>;
-    query_stats: {
-      candidates_retrieved: number;
-      final_results: number;
-      reranker_used: boolean;
-      canlii_used: boolean;
-      tokens_generated: number;
-    };
-  }> => {
-    const { data } = await apiClient.post('/criminal-law/rag/ask/', {
-      query,
-      alpha: options?.alpha ?? 0.5,
-      limit: options?.limit ?? 10,
-      use_reranker: options?.use_reranker ?? true,
-    });
-    return data;
-  },
-
-  /**
-   * Streaming RAG query with Server-Sent Events
-   * 
-   * IMPORTANT: This uses native fetch instead of axios because
-   * axios doesn't support SSE streaming properly.
-   * 
-   * @param query - The user's question
-   * @param options - Configuration options (alpha, limit, etc.)
-   * @param callbacks - Event handlers for streaming events
-   */
-  askRAGStream: async (
-    query: string,
-    options?: {
-      alpha?: number;
-      limit?: number;
-      use_reranker?: boolean;
-      use_canlii?: boolean;
-    },
-    callbacks?: {
-      onStatus?: (status: string, message?: string) => void;
-      onToken?: (token: string) => void;
-      onComplete?: (metadata: any) => void;
-      onError?: (error: string) => void;
-    }
-  ): Promise<void> => {
-    // Get base URL and token from your apiClient
-    const baseURL = apiClient.defaults.baseURL || 'http://localhost:8000/api';
+  // POST /api/chats/send-message/ o /api/chats/{id}/send-message/
+  sendMessageStream: async (
+    content: string,
+    chatId: number | null,
+    params: RAGSearchParams,
+    callbacks: StreamCallbacks
+  ) => {
+    const url = chatId 
+      ? `${apiClient.defaults.baseURL}/chats/${chatId}/send-message/`
+      : `${apiClient.defaults.baseURL}/chats/send-message/`;
+    
     const token = localStorage.getItem('access_token');
 
-    // Build headers
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ content, ...params }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    try {
-      // Use native fetch for SSE support
-      const response = await fetch(`${baseURL}/criminal-law/rag/ask-stream/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          query,
-          alpha: options?.alpha ?? 0.5,
-          limit: options?.limit ?? 10,
-          use_reranker: options?.use_reranker ?? true,
-          use_canlii: options?.use_canlii ?? false,
-        }),
-      });
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText || 'Request failed'}`);
-      }
+    if (!reader) {
+      throw new Error('No reader available');
+    }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
+    let buffer = '';
 
-      if (!reader) {
-        throw new Error('No response body');
-      }
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      let buffer = '';
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-      // Read stream
-      while (true) {
-        const { done, value } = await reader.read();
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          
+          if (data === '[DONE]') {
+            continue;
+          }
 
-        if (done) {
-          break;
-        }
+          try {
+            const parsed = JSON.parse(data);
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const eventData = JSON.parse(line.slice(6));
-
-              // Handle different event types
-              if (eventData.status === 'embedding' || 
-                  eventData.status === 'searching' || 
-                  eventData.status === 'reranking' || 
-                  eventData.status === 'processing' || 
-                  eventData.status === 'canlii' || 
-                  eventData.status === 'generating') {
-                callbacks?.onStatus?.(eventData.status, eventData.message);
-              } else if (eventData.status === 'streaming' && eventData.token) {
-                callbacks?.onToken?.(eventData.token);
-              } else if (eventData.status === 'complete' && eventData.done) {
-                callbacks?.onComplete?.(eventData.metadata);
-              } else if (eventData.status === 'error') {
-                callbacks?.onError?.(eventData.error);
-                break;
-              } else if (eventData.status === 'no_results') {
-                callbacks?.onError?.(eventData.message || 'No relevant documents found.');
-                break;
-              }
-            } catch (parseError) {
-              console.error('Error parsing SSE event:', parseError);
+            if (parsed.status === 'chat_created') {
+              callbacks.onChatCreated?.(parsed.chat_id);
             }
+            else if (parsed.status && !['streaming', 'complete'].includes(parsed.status)) {
+              callbacks.onStatus?.(parsed.status, parsed.message);
+            }
+            else if (parsed.status === 'streaming' && parsed.token) {
+              callbacks.onToken?.(parsed.token);
+            }
+            else if (parsed.status === 'complete' && parsed.done) {
+              const responseData = parsed.response || {};
+              
+              const metadata = {
+                answer: responseData.answer,
+                confidence: responseData.confidence,
+                confidence_breakdown: responseData.confidence_breakdown,
+                query_type: responseData.query_type,
+                intent: responseData.intent,
+                primary_source: responseData.primary_source,
+                supporting_sources: responseData.supporting_sources,
+                citations: responseData.citations,
+                citation_validation: responseData.citation_validation,
+                key_sections: responseData.key_sections,
+                definitions: responseData.definitions,
+                case_citations: responseData.case_citations,
+                warnings: responseData.warnings,
+                suggested_followups: responseData.suggested_followups,
+                metadata: responseData.metadata,
+              };
+              
+              callbacks.onComplete?.(metadata);
+            }
+            else if (parsed.status === 'error') {
+              callbacks.onError?.(parsed.error);
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE data:', e);
           }
         }
       }
-    } catch (error: any) {
-      callbacks?.onError?.(error.message || 'Failed to process query');
-      throw error;
     }
   },
 };

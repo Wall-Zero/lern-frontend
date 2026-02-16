@@ -43,5 +43,36 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+    // Plugin para scrollbars personalizados
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.scrollbar-thin': {
+          'scrollbar-width': 'thin',
+        },
+        '.scrollbar-thumb-gray-300': {
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#d1d5db',
+            borderRadius: '9999px',
+          },
+        },
+        '.scrollbar-thumb-gray-400': {
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#9ca3af',
+            borderRadius: '9999px',
+          },
+        },
+        '.scrollbar-track-transparent': {
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
+          },
+        },
+        '.scrollbar-thin::-webkit-scrollbar': {
+          width: '6px',
+        },
+      }
+      addUtilities(newUtilities, ['responsive', 'hover'])
+    }
+  ],
 }
