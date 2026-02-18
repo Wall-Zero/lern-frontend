@@ -93,6 +93,10 @@ export const criminalLawApi = {
             if (parsed.status === 'chat_created') {
               callbacks.onChatCreated?.(parsed.chat_id);
             }
+            else if (parsed.status === 'out_of_scope'){
+              callbacks.onToken?.(parsed.response?.answer || parsed.message);
+              callbacks.onComplete?.(parsed.response || {});
+            }
             else if (parsed.status && !['streaming', 'complete'].includes(parsed.status)) {
               callbacks.onStatus?.(parsed.status, parsed.message);
             }
